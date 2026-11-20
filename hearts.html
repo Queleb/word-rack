@@ -53,7 +53,7 @@
   #trick .card.win{box-shadow:0 0 0 3px #f5d562,0 4px 10px rgba(0,0,0,.35)}
   .tag{display:inline-block;background:rgba(0,0,0,.25);padding:1px 7px;border-radius:9px;font-size:11px;margin-top:2px}
   #msg{min-height:40px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:15px;padding:6px 4px;line-height:1.3}
-  #hand{position:relative;height:calc(min(17vw,78px) * 1.42 + 22px);margin-top:2px}
+  #hand{position:relative;z-index:0;isolation:isolate;height:calc(min(17vw,78px) * 1.42 + 22px);margin-top:2px}
   .card{width:min(17vw,78px);height:calc(min(17vw,78px) * 1.42);background:var(--card);border:1px solid var(--cardEdge);border-radius:8px;
     box-shadow:0 2px 5px rgba(0,0,0,.2);position:relative;color:var(--black);user-select:none;-webkit-user-select:none}
   .card.red{color:var(--red)}
@@ -68,12 +68,12 @@
   #hand .card.dim{filter:brightness(.62) saturate(.6)}
   #hand .card.got{transform:translateY(-16px);box-shadow:0 0 0 3px #f5d562,0 0 18px 4px rgba(245,213,98,.75);animation:glow .9s ease-in-out 3 alternate}
   @keyframes glow{from{box-shadow:0 0 0 3px #f5d562,0 0 6px 1px rgba(245,213,98,.4)}to{box-shadow:0 0 0 3px #f5d562,0 0 22px 6px rgba(245,213,98,.9)}}
-  #hand .card.new::after{content:"";position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  #hand .card.new::after{content:"";position:absolute;bottom:6px;left:6px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--card)}
   #actions{display:flex;gap:8px;margin-top:8px;min-height:46px}
   .btn{flex:1;padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn:disabled{opacity:.45}
-  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
   .hidden{display:none}
   .dcard{background:var(--bg);border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
   .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:19px}
@@ -113,6 +113,7 @@
 </div>
 <div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
 
+<script src="cats.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -540,9 +541,10 @@ function showResults(){
   const won=r.res==="w";
   const title= won ? "You win! 🎉" : r.res==="t" ? "It's a tie" : `${nm(G.scores.indexOf(Math.min(...G.scores)))} wins`;
   const wi=G.scores.indexOf(Math.min(...G.scores));
-  const pic = won ? "icon-192.png" : (r.res!=="t" && G.names ? CATS[G.names[wi]] : "");
+  if (!G.endCat){ const opp=(G.names||[]).slice(1); G.endCat = won||r.res==="t" ? (opp.length?opp[rnd(opp.length)]:GameCats.randomCat()) : (G.names?G.names[wi]:GameCats.randomCat()); G.endLine=GameCats.line(won?"win":"lose",G.endCat); save(); }
+  const pic = CATS[G.endCat] || "icon-192.png";
   dialog(`${pic?`<img class="cat big" src="${pic}" alt="">`:""}<h2 style="text-align:${pic?"center":"left"}">${title}</h2>
-    ${won?`<p style="text-align:center;margin-top:-4px">Glorg is very proud of you.</p>`:""}${scoreTable()}${r.line?`<p>${r.line}</p>`:""}
+    <p style="text-align:center;margin-top:-4px">${G.endLine}</p>${scoreTable()}${r.line?`<p>${r.line}</p>`:""}
     <div class="stack"><button class="btn primary" id="rAgain">Play again</button><button class="btn" id="rStats">Stats</button><button class="btn" id="rView">View table</button></div>`);
   $("rAgain").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
   $("rStats").onclick=()=>{ statsBack=showResults; showStats(); };

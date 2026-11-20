@@ -1,6 +1,6 @@
 // Word Rack offline support: keeps a copy of the game on the device.
-const CACHE = "gameroom-v4";
-const FILES = ["./", "index.html", "wordrack.html", "hearts.html", "words.txt", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "cat-sushi.jpg", "cat-squeex.jpg", "cat-mojito.jpg", "cat-glorg.jpg"];
+const CACHE = "gameroom-v6";
+const FILES = ["./", "index.html", "wordrack.html", "hearts.html", "sudoku.html", "cats.js", "words.txt", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "cat-sushi.jpg", "cat-squeex.jpg", "cat-mojito.jpg", "cat-glorg.jpg"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });

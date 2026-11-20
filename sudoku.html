@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Game Room">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1916">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Sudoku</title>
+<script>
+  (function(){ let t=null; try{ t=localStorage.getItem("wordrack-theme"); }catch(e){}
+    if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+    document.documentElement.dataset.theme=t; })();
+</script>
+<style>
+  :root{
+    --bg:#f4efe6; --ink:#2b2621; --muted:#7a6f63; --line:#d6c9b1; --panel:#fff8ec; --accent:#2f6f5e;
+    --cell:#fffdf8; --thin:#d8cdb8; --thick:#4a4038; --peer:#efe6d4; --sel:#bfe0d4; --same:#9fd0bd;
+    --user:#2b64a8; --wrong:#c0392b; --wrongBg:#f7dcd7; --note:#6f655a; --flash:#ffe27a;
+  }
+  :root[data-theme=dark]{
+    --bg:#1b1916; --ink:#efe7da; --muted:#a39886; --line:#3e3933; --panel:#26231f; --accent:#3d8a75;
+    --cell:#24211d; --thin:#3a352f; --thick:#a39886; --peer:#2f2b26; --sel:#2e5348; --same:#3a6a5b;
+    --user:#8fbdf0; --wrong:#ff8a7a; --wrongBg:#4a2620; --note:#b7ad9f; --flash:#6b5a1d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{max-width:540px;margin:0 auto;padding:calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .top h1{flex:1;margin:0;font-size:20px;text-align:center}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:8px 11px;text-decoration:none}
+  .bar{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted);padding:2px 4px 8px}
+  .bar b{color:var(--ink)}
+  .bar .x{color:var(--wrong);font-weight:800}
+  #grid{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr));aspect-ratio:1;width:100%;
+    border:2.5px solid var(--thick);border-radius:6px;overflow:hidden;container-type:inline-size;user-select:none;-webkit-user-select:none;background:var(--cell)}
+  .c{position:relative;display:flex;align-items:center;justify-content:center;background:var(--cell);border-right:1px solid var(--thin);border-bottom:1px solid var(--thin);
+     font-size:7.2cqw;font-weight:500;color:var(--ink);min-width:0;min-height:0}
+  .c.br{border-right:2px solid var(--thick)} .c.bb{border-bottom:2px solid var(--thick)}
+  .c.g{font-weight:700}
+  .c.u{color:var(--user)}
+  .c.w{color:var(--wrong);background:var(--wrongBg)}
+  .c.peer{background:var(--peer)}
+  .c.same{background:var(--same)}
+  .c.sel{background:var(--sel)}
+  .c.w.sel,.c.w.same{background:var(--wrongBg);box-shadow:inset 0 0 0 2px var(--wrong)}
+  .c.flash{animation:fl 1.2s ease-out}
+  @keyframes fl{0%{background:var(--flash)}100%{}}
+  .notes{position:absolute;inset:1px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);font-size:2.7cqw;color:var(--note);font-weight:600}
+  .notes span{display:flex;align-items:center;justify-content:center}
+  .notes span.hl{color:var(--ink);background:var(--same);border-radius:3px}
+  #tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 8px}
+  .tool{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:12px;font-weight:600}
+  .tool .ic{font-size:20px;line-height:1}
+  .tool.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tool:disabled{opacity:.4}
+  .badge{position:absolute;top:4px;right:8px;background:var(--accent);color:#fff;border-radius:9px;font-size:11px;padding:0 6px;line-height:17px}
+  .tool.on .badge{background:#fff;color:var(--accent)}
+  #pad{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+  .num{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--user);font-size:min(7.4vw,32px);font-weight:600;line-height:1.1}
+  .num small{font-size:10px;color:var(--muted);font-weight:600}
+  .num.done{visibility:hidden}
+  #msg{min-height:22px;text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .hidden{display:none}
+  .dcard{background:var(--bg);border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
+  .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:20px}
+  .dcard p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.4}
+  .lbl{font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  .seg{display:grid;gap:6px;grid-template-columns:repeat(2,1fr)}
+  .seg button{padding:10px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;font-weight:600;color:var(--ink)}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stack{display:grid;gap:8px;margin-top:16px}
+  .btn{padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink);text-align:center;text-decoration:none;display:block}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .res{width:100%;border-collapse:collapse;margin-top:8px;font-size:15px}
+  .res td{padding:6px 4px;border-bottom:1px solid var(--line)}
+  .res td:last-child{text-align:right;font-weight:700}
+  .brand{display:flex;align-items:center;gap:12px}
+  .cat{width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #ead39f,0 2px 8px rgba(0,0,0,.25);flex:0 0 auto}
+  .cat.big{width:120px;height:120px;display:block;margin:4px auto 10px}
+  .quote{text-align:center;font-size:16px;color:var(--ink)!important;margin:2px 0 8px!important}
+  .big-score{text-align:center;font-size:40px;font-weight:800;margin:4px 0 0}
+  textarea{width:100%;height:110px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="iconbtn" href="./">← Games</a>
+    <h1 id="title">Sudoku</h1>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
+  <div class="bar">
+    <span>Mistakes <b id="mis">0</b>/3</span>
+    <span>⏱ <b id="time">0:00</b></span>
+  </div>
+  <div id="grid"></div>
+  <div id="tools">
+    <button class="tool" id="undoBtn"><span class="ic">↶</span>Undo</button>
+    <button class="tool" id="eraseBtn"><span class="ic">⌫</span>Erase</button>
+    <button class="tool" id="notesBtn"><span class="ic">✎</span>Notes<span class="badge" id="notesBadge">Off</span></button>
+    <button class="tool" id="hintBtn"><span class="ic">💡</span>Hint<span class="badge" id="hintBadge">3</span></button>
+  </div>
+  <div id="pad"></div>
+  <div id="msg"></div>
+</div>
+<div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
+
+<script src="cats.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const rnd=n=>Math.floor(Math.random()*n);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
+const LEVELS=["Easy","Medium","Hard","Expert"];
+const BASE=[1000,2000,3500,5000], PAR=[6*60,10*60,15*60,22*60];
+const SAVE_KEY="sudoku-save-v1", STATS_KEY="sudoku-stats-v1";
+
+// ---------- Board geometry ----------
+const R=[],C=[],B=[]; for(let i=0;i<81;i++){ R[i]=Math.floor(i/9); C[i]=i%9; B[i]=Math.floor(R[i]/3)*3+Math.floor(C[i]/3); }
+const UNITS=[]; for(let k=0;k<9;k++){ UNITS.push([...Array(9)].map((_,j)=>k*9+j)); UNITS.push([...Array(9)].map((_,j)=>j*9+k)); }
+for(let b=0;b<9;b++){ const r0=Math.floor(b/3)*3,c0=(b%3)*3,u=[]; for(let r=0;r<3;r++)for(let c=0;c<3;c++)u.push((r0+r)*9+c0+c); UNITS.push(u); }
+const PEERS=[...Array(81)].map((_,i)=>{ const s=new Set(); for(let j=0;j<81;j++) if(j!==i&&(R[j]===R[i]||C[j]===C[i]||B[j]===B[i])) s.add(j); return [...s]; });
+const pop=x=>{ let n=0; while(x){ x&=x-1; n++; } return n; };
+
+// ---------- Generator ----------
+function search(g, limit, randomize){
+  const a=g.slice(), rm=Array(9).fill(0), cm=Array(9).fill(0), bm=Array(9).fill(0);
+  for(let i=0;i<81;i++) if(a[i]){ const bit=1<<a[i]; if((rm[R[i]]|cm[C[i]]|bm[B[i]])&bit) return {count:0}; rm[R[i]]|=bit; cm[C[i]]|=bit; bm[B[i]]|=bit; }
+  let count=0, first=null;
+  const digits=[1,2,3,4,5,6,7,8,9];
+  (function rec(){
+    let best=-1,bo=0,bn=10;
+    for(let i=0;i<81;i++) if(!a[i]){ const o=~(rm[R[i]]|cm[C[i]]|bm[B[i]])&0x3FE, n=pop(o); if(n<bn){bn=n;best=i;bo=o; if(n<=1) break;} }
+    if(best<0){ count++; if(!first) first=a.slice(); return; }
+    if(bn===0) return;
+    const ds= randomize ? shuffle(digits.slice()) : digits;
+    for(const d of ds){ if(!(bo&(1<<d))) continue; const bit=1<<d;
+      a[best]=d; rm[R[best]]|=bit; cm[C[best]]|=bit; bm[B[best]]|=bit;
+      rec();
+      a[best]=0; rm[R[best]]&=~bit; cm[C[best]]&=~bit; bm[B[best]]&=~bit;
+      if(count>=limit) return; }
+  })();
+  return {count, first};
+}
+// How a person would solve it: singles only (naked, optionally hidden). Returns true if that's enough.
+function singlesSolve(g, hidden){
+  const a=g.slice();
+  for(let guard=0;guard<200;guard++){
+    let progress=false, empty=0;
+    for(let i=0;i<81;i++) if(!a[i]){ empty++; let used=0; for(const p of PEERS[i]) if(a[p]) used|=1<<a[p]; const o=~used&0x3FE;
+      if(pop(o)===1){ a[i]=Math.log2(o); progress=true; } else if(!o) return false; }
+    if(!empty) return true;
+    if(!progress && hidden){
+      for(const u of UNITS){ for(let d=1;d<=9;d++){ if(u.some(i=>a[i]===d)) continue;
+        const spots=u.filter(i=>!a[i] && !PEERS[i].some(p=>a[p]===d));
+        if(spots.length===1){ a[spots[0]]=d; progress=true; } } }
+    }
+    if(!progress) return false;
+  }
+  return false;
+}
+function makePuzzle(level){
+  const target=[38,32,27,24][level];
+  let fallback=null;
+  for(let attempt=0;attempt<60;attempt++){
+    const sol=search(Array(81).fill(0),1,true).first, puz=sol.slice();
+    let givens=81;
+    for(const i of shuffle([...Array(41).keys()])){
+      if(givens<=target) break;
+      const j=80-i, vi=puz[i], vj=puz[j];
+      puz[i]=0; puz[j]=0;
+      if(search(puz,2,false).count!==1){ puz[i]=vi; puz[j]=vj; } else givens-= (i===j?1:2);
+    }
+    const ok = level===0 ? singlesSolve(puz,false) : level===1 ? singlesSolve(puz,true) : level===2 ? true : !singlesSolve(puz,true);
+    const near = givens<=target+(level===3?2:1);
+    if (ok && near) return {puz,sol};
+    if (ok && !fallback) fallback={puz,sol};
+  }
+  return fallback || (()=>{ const sol=search(Array(81).fill(0),1,true).first; return {puz:sol.map((v,i)=>i%3?v:0), sol}; })();
+}
+
+// ---------- State ----------
+let SD=null, sel=-1, notesMode=false, timer=null;
+function readLocal(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function writeLocal(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function save(){ if (SD) writeLocal(SAVE_KEY,SD); }
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+function newGame(level){
+  dialog(`<h2>Making a ${LEVELS[level]} puzzle…</h2><p>Just a moment.</p>`);
+  setTimeout(()=>{
+    const {puz,sol}=makePuzzle(level);
+    SD={level,puz,sol,vals:puz.slice(),notes:Array(81).fill(0),mistakes:0,hints:3,elapsed:0,over:false,won:false,undo:[]};
+    sel=-1; notesMode=false; closeDialog(); save(); render(); startTimer();
+    setMsg("Tap a square, then a number.");
+  },60);
+}
+const isGiven=i=>SD.puz[i]!==0;
+const isCorrect=i=>SD.vals[i]!==0 && SD.vals[i]===SD.sol[i];
+const locked=i=>isGiven(i)||isCorrect(i);
+
+// ---------- Actions ----------
+function snapshot(cells){ return cells.map(i=>({i,v:SD.vals[i],n:SD.notes[i]})); }
+function pushUndo(before){ SD.undo.push(before); if (SD.undo.length>300) SD.undo.shift(); }
+function enter(d){
+  if (!SD || SD.over || sel<0) { if(sel<0) setMsg("Pick a square first."); return; }
+  const i=sel;
+  if (locked(i)){ render(); return; }
+  if (notesMode){
+    if (SD.vals[i]) return;
+    pushUndo(snapshot([i])); SD.notes[i]^=(1<<d); save(); render(); return;
+  }
+  if (d===SD.sol[i]){
+    const touched=[i,...PEERS[i].filter(p=>SD.notes[p]&(1<<d))];
+    pushUndo(snapshot(touched));
+    SD.vals[i]=d; SD.notes[i]=0; for(const p of touched) if(p!==i) SD.notes[p]&=~(1<<d);
+    save(); render(); flash(i);
+    if (SD.vals.every((v,k)=>v===SD.sol[k])) return finish(true);
+    if (SD.vals.filter(v=>v===d).length===9 && SD.vals.every((v,k)=>v!==d||v===SD.sol[k])) setMsg(`All the ${d}s are done!`); else setMsg("");
+  } else {
+    pushUndo(snapshot([i]));
+    SD.vals[i]=d; SD.mistakes++;
+    save(); render();
+    if (SD.mistakes>=3) return finish(false);
+    setMsg(`Not quite. ${3-SD.mistakes} mistake${3-SD.mistakes===1?"":"s"} left.`);
+  }
+}
+function erase(){
+  if (!SD || SD.over || sel<0 || locked(sel)) return;
+  if (!SD.vals[sel] && !SD.notes[sel]) return;
+  pushUndo(snapshot([sel])); SD.vals[sel]=0; SD.notes[sel]=0; save(); render();
+}
+function undo(){
+  if (!SD || SD.over || !SD.undo.length) { setMsg("Nothing to undo."); return; }
+  const snap=SD.undo.pop();
+  for (const s of snap){ SD.vals[s.i]=s.v; SD.notes[s.i]=s.n; }
+  sel=snap[0].i; save(); render(); setMsg("Undone. (Mistakes still count.)");
+}
+function hint(){
+  if (!SD || SD.over) return;
+  if (SD.hints<=0){ setMsg("No hints left."); return; }
+  let i = (sel>=0 && !locked(sel)) ? sel : -1;
+  if (i<0){ // the easiest open square: fewest possibilities
+    let bn=10; for(let k=0;k<81;k++) if(!locked(k)){ let used=0; for(const p of PEERS[k]) if(SD.vals[p]&&isCorrect(p)) used|=1<<SD.vals[p]; const n=pop(~used&0x3FE); if(n<bn){bn=n;i=k;} }
+  }
+  if (i<0) return;
+  const d=SD.sol[i];
+  for (const p of PEERS[i]) SD.notes[p]&=~(1<<d);
+  SD.vals[i]=d; SD.notes[i]=0; SD.hints--; sel=i;
+  save(); render(); flash(i); setMsg(`Hint: that square is a ${d}.`);
+  if (SD.vals.every((v,k)=>v===SD.sol[k])) finish(true);
+}
+function flash(i){ const el=$("grid").children[i]; el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+
+// ---------- Timer ----------
+function startTimer(){ stopTimer(); timer=setInterval(()=>{ if (!SD || SD.over || document.hidden || !$("dialog").classList.contains("hidden")) return; SD.elapsed++; $("time").textContent=fmt(SD.elapsed); if (SD.elapsed%5===0) save(); },1000); }
+function stopTimer(){ if (timer) clearInterval(timer); timer=null; }
+const fmt=s=>{ const h=Math.floor(s/3600), m=Math.floor(s/60)%60, ss=String(s%60).padStart(2,"0"); return h?`${h}:${String(m).padStart(2,"0")}:${ss}`:`${m}:${ss}`; };
+
+// ---------- Rendering ----------
+function setMsg(t){ $("msg").textContent=t; }
+function buildGrid(){
+  const g=$("grid"); g.innerHTML="";
+  for(let i=0;i<81;i++){ const d=document.createElement("div"); d.className="c"; d.dataset.i=i; g.appendChild(d); }
+  g.addEventListener("click",e=>{ const c=e.target.closest(".c"); if(!c||!SD) return; sel=+c.dataset.i; render(); });
+  const p=$("pad"); p.innerHTML=[1,2,3,4,5,6,7,8,9].map(d=>`<button class="num" data-d="${d}">${d}<small></small></button>`).join("");
+  p.addEventListener("click",e=>{ const b=e.target.closest(".num"); if(b) enter(+b.dataset.d); });
+}
+function render(){
+  if (!SD) return;
+  $("title").textContent="Sudoku · "+LEVELS[SD.level];
+  $("mis").textContent=SD.mistakes; $("mis").className=SD.mistakes?"x":"";
+  $("time").textContent=fmt(SD.elapsed);
+  const sv = sel>=0 && SD.vals[sel] ? SD.vals[sel] : 0;
+  const cells=$("grid").children;
+  for(let i=0;i<81;i++){
+    const el=cells[i], v=SD.vals[i];
+    let cls="c"+(C[i]%3===2&&C[i]<8?" br":"")+(R[i]%3===2&&R[i]<8?" bb":"");
+    if (isGiven(i)) cls+=" g"; else if (v) cls+= v===SD.sol[i]?" u":" w";
+    if (sel>=0){
+      if (i===sel) cls+=" sel";
+      else if (sv && v===sv) cls+=" same";
+      else if (R[i]===R[sel]||C[i]===C[sel]||B[i]===B[sel]) cls+=" peer";
+    }
+    if (el.className.replace(/ flash/,"")!==cls) el.className=cls+(el.classList.contains("flash")?" flash":"");
+    let html="";
+    if (v) html=String(v);
+    else if (SD.notes[i]) html=`<div class="notes">${[1,2,3,4,5,6,7,8,9].map(d=>`<span class="${sv===d&&(SD.notes[i]&(1<<d))?"hl":""}">${SD.notes[i]&(1<<d)?d:""}</span>`).join("")}</div>`;
+    if (el.innerHTML!==html) el.innerHTML=html;
+  }
+  // pad counts
+  const counts=Array(10).fill(0); SD.vals.forEach((v,i)=>{ if(v&&v===SD.sol[i]) counts[v]++; });
+  [...$("pad").children].forEach((b,k)=>{ const d=k+1; b.classList.toggle("done",counts[d]>=9); b.querySelector("small").textContent=9-counts[d]; });
+  $("notesBtn").classList.toggle("on",notesMode); $("notesBadge").textContent=notesMode?"On":"Off";
+  $("hintBadge").textContent=SD.hints; $("hintBtn").disabled=SD.hints<=0||SD.over;
+  for (const id of ["undoBtn","eraseBtn","notesBtn"]) $(id).disabled=SD.over;
+}
+
+// ---------- End of game ----------
+function scoreFor(){
+  const tf=Math.max(0.5,Math.min(1.5,PAR[SD.level]/Math.max(1,SD.elapsed)));
+  const total=Math.round(BASE[SD.level]*tf*(1-0.15*SD.mistakes)*(1-0.10*(3-SD.hints)));
+  return {tf,total};
+}
+function finish(won){
+  SD.over=true; SD.won=won; stopTimer();
+  if (won){ const sc=scoreFor(); SD.score=sc.total; SD.tf=sc.tf; }
+  SD.endCat=GameCats.randomCat(); SD.endLine=GameCats.line(won?"win":"lose",SD.endCat);
+  SD.result=recordResult(won);
+  sel=-1; save(); render();
+  setTimeout(showEnd, won?650:400);
+}
+function showEnd(){
+  const won=SD.won, used=3-SD.hints;
+  const br = won ? `<div class="big-score">${SD.score.toLocaleString()}</div><p style="text-align:center;margin-top:0">points${SD.result&&SD.result.newBest?" · <b>New best!</b> 🏆":""}</p>
+    <table class="res">
+      <tr><td>Base (${LEVELS[SD.level]})</td><td>${BASE[SD.level].toLocaleString()}</td></tr>
+      <tr><td>Time ${fmt(SD.elapsed)} (target ${fmt(PAR[SD.level])})</td><td>×${SD.tf.toFixed(2)}</td></tr>
+      <tr><td>Mistakes: ${SD.mistakes}</td><td>${SD.mistakes?"−"+(15*SD.mistakes)+"%":"—"}</td></tr>
+      <tr><td>Hints used: ${used}</td><td>${used?"−"+(10*used)+"%":"—"}</td></tr>
+    </table>` : `<p style="text-align:center">Three mistakes. That's the game.</p>
+    <table class="res"><tr><td>Time</td><td>${fmt(SD.elapsed)}</td></tr><tr><td>Squares left</td><td>${SD.vals.filter((v,i)=>v!==SD.sol[i]).length}</td></tr></table>`;
+  dialog(`<img class="cat big" src="${GameCats.img(SD.endCat)}" alt=""><h2 style="text-align:center">${won?"Solved! 🎉":"Game over"}</h2>
+    <p class="quote">${SD.endLine}</p>${br}
+    <div class="stack"><button class="btn primary" id="eAgain">New ${LEVELS[SD.level]} puzzle</button>
+    <button class="btn" id="eChange">Change difficulty</button>
+    <button class="btn" id="eStats">📊 Stats</button>
+    ${won?"":`<button class="btn" id="eSol">Show the solution</button>`}
+    <button class="btn" id="eView">View board</button></div>`);
+  $("eAgain").onclick=()=>newGame(SD.level);
+  $("eChange").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  $("eStats").onclick=()=>{ statsBack=showEnd; showStats(); };
+  $("eView").onclick=closeDialog;
+  if ($("eSol")) $("eSol").onclick=()=>{ SD.vals=SD.sol.slice(); SD.notes=Array(81).fill(0); save(); render(); closeDialog(); setMsg("Here's the solution."); };
+}
+
+// ---------- Dialogs ----------
+function dialog(html){ $("dlg").innerHTML=html; $("dialog").classList.remove("hidden"); }
+function closeDialog(){ $("dialog").classList.add("hidden"); }
+function showStart(){
+  const saved=readLocal(SAVE_KEY);
+  let level=saved?saved.level:1;
+  const draw=()=>{
+    dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Sudoku</h1><p style="margin:0">Fill every row, column and box with 1–9.</p></div></div>
+      ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue ${LEVELS[saved.level]} puzzle (${fmt(saved.elapsed)})</button></div>`:""}
+      <div class="lbl">Difficulty</div>
+      <div class="seg">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}">${l}</button>`).join("")}</div>
+      <div class="stack"><button class="btn ${saved&&!saved.over?"":"primary"}" id="sNew">New puzzle</button><button class="btn" id="sStats">📊 Stats</button><a class="btn" href="./">← All games</a></div>`);
+    $("dlg").querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{level=+b.dataset.lv;draw();});
+    $("sNew").onclick=()=>newGame(level);
+    $("sStats").onclick=()=>{ statsBack=draw; showStats(); };
+    if ($("sCont")) $("sCont").onclick=()=>{ closeDialog(); resume(saved); };
+  };
+  draw();
+}
+function resume(saved){ SD=saved; sel=-1; notesMode=false; render(); if (!SD.over) startTimer(); setMsg("Welcome back! Timer's running."); }
+function showMenu(){
+  dialog(`<h2>Menu <span style="font-weight:500;color:var(--muted);font-size:14px">(timer paused)</span></h2><div class="stack">
+    <button class="btn primary" id="mBack">Back to puzzle</button>
+    <button class="btn" id="mNew">New puzzle</button>
+    <button class="btn" id="mStats">📊 Stats</button>
+    <button class="btn" id="mTheme">${document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mRules">How to play</button>
+    <a class="btn" href="./">← All games</a></div>`);
+  $("mBack").onclick=closeDialog;
+  $("mNew").onclick=()=>{
+    if (!SD || SD.over){ showStart(); return; }
+    dialog(`<h2>Start a new puzzle?</h2><p>This puzzle will be lost.</p><div class="stack"><button class="btn primary" id="yN">Yes, new puzzle</button><button class="btn" id="nN">Cancel</button></div>`);
+    $("yN").onclick=()=>{ writeLocal(SAVE_KEY,null); SD=null; stopTimer(); showStart(); }; $("nN").onclick=showMenu;
+  };
+  $("mStats").onclick=()=>{ statsBack=showMenu; showStats(); };
+  $("mTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; try{localStorage.setItem("wordrack-theme",t);}catch(e){} showMenu(); };
+  $("mRules").onclick=()=>{
+    dialog(`<h2>How to play</h2>
+      <p>Fill the grid so every row, column and 3×3 box has the numbers 1–9 exactly once.</p>
+      <p>Tap a square, then tap a number. Wrong numbers show in red and count as a mistake. Three mistakes ends the game.</p>
+      <p><b>Notes</b> lets you pencil in small numbers. When you place a number, it's removed from the notes around it automatically.</p>
+      <p><b>Hint</b> fills in the square you've picked (or the easiest one if you haven't picked any). You get 3 per puzzle.</p>
+      <p><b>Score:</b> each difficulty has a base score. Beating the target time earns up to ×1.5, and slower times drop to ×0.5. Each mistake is −15% and each hint −10%.</p>
+      <p>On a computer you can type 1–9, Backspace to erase, N for notes, and arrow keys to move.</p>
+      <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
+    $("rOk").onclick=showMenu;
+  };
+}
+$("menuBtn").onclick=()=>{ if (SD) showMenu(); else showStart(); };
+
+// ---------- Buttons + keyboard ----------
+$("undoBtn").onclick=undo; $("eraseBtn").onclick=erase; $("hintBtn").onclick=hint;
+$("notesBtn").onclick=()=>{ notesMode=!notesMode; render(); setMsg(notesMode?"Notes on: numbers go in as pencil marks.":""); };
+document.addEventListener("keydown",e=>{
+  if (!SD || !$("dialog").classList.contains("hidden")) return;
+  if (/^[1-9]$/.test(e.key)) enter(+e.key);
+  else if (e.key==="Backspace"||e.key==="Delete"||e.key==="0") erase();
+  else if (e.key==="n"||e.key==="N") $("notesBtn").click();
+  else if ((e.ctrlKey||e.metaKey)&&e.key==="z") undo();
+  else if (e.key.startsWith("Arrow")){ if (sel<0) sel=40; else { const r=R[sel],c=C[sel];
+      sel = e.key==="ArrowUp"?((r+8)%9)*9+c : e.key==="ArrowDown"?((r+1)%9)*9+c : e.key==="ArrowLeft"?r*9+(c+8)%9 : r*9+(c+1)%9; }
+    render(); e.preventDefault(); }
+});
+
+// ---------- Stats ----------
+let statsBack=null;
+function blankStats(){ return {levels:{},streak:0,bestStreak:0}; }
+function loadStats(){ return Object.assign(blankStats(), readLocal(STATS_KEY)||{}); }
+function recordResult(won){
+  const st=loadStats(), L=st.levels[SD.level]||(st.levels[SD.level]={played:0,won:0,bestTime:null,bestScore:null});
+  L.played++; let newBest=false;
+  if (won){ L.won++; st.streak++; st.bestStreak=Math.max(st.bestStreak,st.streak);
+    if (L.bestTime==null||SD.elapsed<L.bestTime) L.bestTime=SD.elapsed;
+    if (L.bestScore==null||SD.score>L.bestScore){ newBest=L.bestScore!=null; L.bestScore=SD.score; } }
+  else st.streak=0;
+  writeLocal(STATS_KEY,st); return {newBest};
+}
+function showStats(){
+  const st=loadStats();
+  const rows=LEVELS.map((l,i)=>{ const L=st.levels[i]; if(!L) return ""; return `<tr><td><b>${l}</b><br><span style="font-size:12px;color:var(--muted)">${L.won}/${L.played} solved · best time ${L.bestTime!=null?fmt(L.bestTime):"–"}</span></td><td>${L.bestScore!=null?L.bestScore.toLocaleString():"–"}</td></tr>`; }).join("");
+  dialog(`<h2>Sudoku stats</h2>
+    <table class="res"><tr><td>Current streak</td><td>${st.streak}</td></tr><tr><td>Best streak</td><td>${st.bestStreak}</td></tr></table>
+    ${rows?`<div class="lbl">Best scores</div><table class="res">${rows}</table>`:`<p>Finish a puzzle to start your stats.</p>`}
+    <div class="stack"><button class="btn primary" id="stClose">Close</button><button class="btn" id="stExp">Export stats (backup)</button><button class="btn" id="stImp">Import stats</button><button class="btn" id="stReset">Reset stats</button></div>`);
+  $("stClose").onclick=()=>{ statsBack?statsBack():closeDialog(); };
+  $("stExp").onclick=()=>{
+    const code="SD1:"+btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    dialog(`<h2>Export stats</h2><p>Copy this code somewhere safe. Paste it into Import to restore.</p><textarea id="eC" readonly>${code}</textarea><p id="eM"></p>
+      <div class="stack"><button class="btn primary" id="eCp">Copy code</button><button class="btn" id="eB">Back</button></div>`);
+    $("eCp").onclick=()=>{ const ta=$("eC"); ta.focus(); ta.select(); const ok=()=>$("eM").textContent="Copied ✓", bad=()=>$("eM").textContent="Long-press the selected code and choose Copy.";
+      try{ navigator.clipboard.writeText(code).then(ok,()=>{ try{ document.execCommand("copy")?ok():bad(); }catch(e){bad();} }); }catch(e){ bad(); } };
+    $("eB").onclick=showStats;
+  };
+  $("stImp").onclick=()=>{
+    dialog(`<h2>Import stats</h2><p>Paste a Sudoku code from Export. This replaces your current Sudoku stats.</p><textarea id="iC"></textarea><p id="iM"></p>
+      <div class="stack"><button class="btn primary" id="iGo">Import</button><button class="btn" id="iB">Back</button></div>`);
+    $("iGo").onclick=()=>{ try{ const raw=$("iC").value.trim(); if(!raw.startsWith("SD1:")) throw 0; const o=JSON.parse(decodeURIComponent(escape(atob(raw.slice(4))))); if(!o||typeof o.levels!=="object") throw 0; writeLocal(STATS_KEY,Object.assign(blankStats(),o)); showStats(); }catch(e){ $("iM").textContent="That code doesn't look right."; } };
+    $("iB").onclick=showStats;
+  };
+  $("stReset").onclick=()=>{
+    dialog(`<h2>Reset Sudoku stats?</h2><p>This can't be undone.</p><div class="stack"><button class="btn primary" id="rsY">Reset</button><button class="btn" id="rsN">Cancel</button></div>`);
+    $("rsY").onclick=()=>{ writeLocal(STATS_KEY,blankStats()); showStats(); }; $("rsN").onclick=showStats;
+  };
+}
+
+// ---------- Boot ----------
+buildGrid();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+(function(){ const saved=readLocal(SAVE_KEY); if (saved && !saved.over) resume(saved); else showStart(); })();
+</script>
+</body>
+</html>
