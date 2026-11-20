@@ -57,6 +57,7 @@
   .card{width:min(17vw,78px);height:calc(min(17vw,78px) * 1.42);background:var(--card);border:1px solid var(--cardEdge);border-radius:8px;
     box-shadow:0 2px 5px rgba(0,0,0,.2);position:relative;color:var(--black);user-select:none;-webkit-user-select:none}
   .card.red{color:var(--red)}
+  .card.backface{border:3px solid #f3e9d8}
   .card .cr{position:absolute;left:5px;top:3px;font-weight:800;font-size:min(5vw,22px);line-height:1}
   .card .cs{position:absolute;left:5px;top:calc(3px + min(5vw,22px));font-size:min(4.4vw,19px);line-height:1}
   .card .cb{position:absolute;right:6px;bottom:4px;font-size:min(8.5vw,38px);line-height:1}
@@ -124,6 +125,8 @@ const isQS=c=>c.s==="S"&&c.r===12;
 const pts=c=>c.s==="H"?1:(isQS(c)?13:0);
 const CATS={Squeex:"cat-squeex.jpg",Sushi:"cat-sushi.jpg",Mojito:"cat-mojito.jpg",Glorg:"cat-glorg.jpg"};
 const LEVELS=["Easy","Medium","Hard","Expert","Mixed"];
+const BACKS=[["#8d3b32","#a8483d"],["#2c4f86","#3a64a3"],["#5b3a86","#7049a3"],["#b0601f","#c97a33"],["#1f6f74","#2c878c"],["#a33d6b","#bd5282"],["#4a4a4a","#5e5e5e"]];
+const backBg=p=>{ const b=(G&&G.backs)?BACKS[G.backs[p]]:BACKS[0]; return `repeating-linear-gradient(45deg,${b[0]} 0 3px,${b[1]} 3px 6px)`; };
 const nm=p=>p===0?"You":(G&&G.names?G.names[p]:["You","West","North","East"][p]);
 const lvOf=p=>G.levels?G.levels[p]:G.level;
 const SPEEDS={slow:{think:1400,fly:480,linger:2400,after:600,hand:2000,got:3600},
@@ -151,7 +154,7 @@ try{ navigator.storage && navigator.storage.persist && navigator.storage.persist
 function newGame(level,target){
   const names=shuffle(Object.keys(CATS)).slice(0,3);
   const levels= level===4 ? [null,...shuffle([0,1,2,3]).slice(0,3)] : [null,level,level,level];
-  G={level,levels,names:["You",...names],target,scores:[0,0,0,0],handNo:0,history:[],over:false};
+  G={level,levels,names:["You",...names],backs:shuffle(BACKS.map((_,i)=>i)).slice(0,4),target,scores:[0,0,0,0],handNo:0,history:[],over:false};
   startHand();
 }
 function startHand(){
@@ -160,7 +163,7 @@ function startHand(){
   G.hands=[0,1,2,3].map(i=>deck.slice(i*13,i*13+13));
   G.hands.forEach(sortHand);
   G.dir=G.handNo%4; G.trick=[]; G.lastTrick=null; G.handPts=[0,0,0,0]; G.tricks=0; G.broken=false;
-  G.played=[]; G.voids=[{},{},{},{}]; G.received=[];
+  G.played=[]; G.voids=[{},{},{},{}]; G.received=[]; G.passKnown=null;
   sel.clear();
   G.phase = G.dir===3 ? "play" : "pass";
   if (G.phase==="play") beginPlay(); else { save(); render(); setMsg(`Choose 3 cards to pass <b>${PASSNAME[G.dir]}</b>.`); }
@@ -168,9 +171,36 @@ function startHand(){
 function sortHand(h){ h.sort((a,b)=>SUITS.indexOf(a.s)-SUITS.indexOf(b.s)||a.r-b.r); }
 const passTo=(i,d)=>d===0?(i+1)%4:d===1?(i+3)%4:(i+2)%4;
 function doPass(){
-  if (sel.size!==3) return;
+  if (sel.size!==3 || busy) return;
+  busy=true; render();
+  const d=Math.round(T_().fly*1.7), tgt=passTo(0,G.dir), src=[3,1,2][G.dir];
+  const tp=seatPoint(tgt), sp=seatPoint(src), hr=$("hand").getBoundingClientRect();
+  const fly=(el,from,dx,dy,extra)=>{
+    Object.assign(el.style,{position:"fixed",left:from.left+"px",top:from.top+"px",margin:"0",zIndex:"50",transition:`transform ${d}ms ease, opacity ${d}ms ease`});
+    document.body.appendChild(el); el.getBoundingClientRect();
+    el.style.transform=`translate(${dx}px,${dy}px) ${extra}`;
+  };
+  // your 3 cards slide to the player you're passing to
+  const outs=[...$("hand").children].filter(e=>sel.has(e.dataset.id)).map((e,i)=>{
+    const r=e.getBoundingClientRect(), c=e.cloneNode(true); c.className=c.className.replace(/\b(sel|dim|got|new)\b/g,""); e.style.visibility="hidden";
+    fly(c,r,tp.x-(r.left+r.width/2),tp.y-(r.top+r.height/2),`scale(.45) rotate(${(i-1)*10}deg)`); c.style.opacity="0.15"; return c; });
+  setTimeout(()=>{
+    outs.forEach(c=>c.remove());
+    // 3 face-down cards come back from the player passing to you
+    const cw=outs[0]?outs[0].offsetWidth||64:64;
+    const ins=[0,1,2].map(i=>{
+      const c=document.createElement("div"); c.className="card backface"; c.style.background=backBg(src);
+      const w=Math.min(78,innerWidth*0.17), h=w*1.42;
+      const from={left:sp.x-w/2, top:sp.y-h/2};
+      c.style.width=w+"px"; c.style.height=h+"px"; c.style.transformOrigin="center";
+      fly(c,from,(hr.left+hr.width/2+(i-1)*w*0.7)-sp.x,(hr.top+hr.height/2)-sp.y,`rotate(${(i-1)*6}deg)`); return c; });
+    setTimeout(()=>{ ins.forEach(c=>c.remove()); busy=false; commitPass(); }, d+60);
+  }, d+60);
+}
+function commitPass(){
   const out=[0,1,2,3].map(p=> p===0 ? G.hands[0].filter(c=>sel.has(cid(c))) : cpuPass(p));
   out.forEach((cards,p)=>{ G.hands[p]=G.hands[p].filter(c=>!cards.some(x=>cid(x)===cid(c))); });
+  G.passKnown=out.map((cards,p)=>({to:passTo(p,G.dir),ids:cards.map(cid)}));
   out.forEach((cards,p)=>{ const t=passTo(p,G.dir); G.hands[t].push(...cards); if (t===0) G.received=cards.map(cid); });
   G.hands.forEach(sortHand); sel.clear();
   const fromP=[3,1,2][G.dir], from=nm(fromP); // who passed to you
@@ -295,12 +325,81 @@ function cpuPass(p){
 function cpuChoose(p){
   const L=legal(p), lv=lvOf(p);
   if (L.length===1) return L[0];
+  if (lv>=3 && !G.sim) return expertMC(p,L);
   if (lv===0 || (lv===1 && Math.random()<0.25)) return L[rnd(L.length)];
   if (!G.trick.length) return chooseLead(p,L,lv);
   const lead=G.trick[0].c.s;
   return L[0].s===lead ? chooseFollow(p,L,lv) : chooseDiscard(p,L,lv);
 }
+// ---------- Expert: card counting + quick look-ahead ----------
+// Deals the unseen cards to the other players in ways that fit everything Expert knows
+// (who is out of which suit, what it passed), plays each option out with solid play, keeps the safest.
+function sampleHands(p){
+  const others=[1,2,3].map(k=>(p+k)%4), U=unseen(p);
+  const need={}; others.forEach(o=>need[o]=G.hands[o].length);
+  for (let attempt=0; attempt<12; attempt++){
+    const hands={}; others.forEach(o=>hands[o]=[]);
+    let pool=U.slice(), ok=true;
+    const pk=G.passKnown&&G.passKnown[p];
+    if (pk){ pool=pool.filter(c=>{ if (pk.ids.includes(cid(c)) && hands[pk.to].length<need[pk.to]){ hands[pk.to].push(c); return false; } return true; }); }
+    shuffle(pool);
+    for (const c of pool){
+      const elig=others.filter(o=>hands[o].length<need[o] && (attempt>8 || !G.voids[o][c.s]));
+      if (!elig.length){ ok=false; break; }
+      hands[elig[rnd(elig.length)]].push(c);
+    }
+    if (ok) return hands;
+  }
+  return null;
+}
+function simPlay(c){
+  const p=G.turn;
+  G.hands[p]=G.hands[p].filter(x=>x!==c && cid(x)!==cid(c));
+  if (G.trick.length && c.s!==G.trick[0].c.s) G.voids[p][G.trick[0].c.s]=true;
+  G.trick.push({p,c}); G.played.push(cid(c)); if (c.s==="H") G.broken=true;
+  G.turn=(p+1)%4;
+  if (G.trick.length===4){ const w=trickWinner(); G.handPts[w]+=G.trick.reduce((s,t)=>s+pts(t.c),0); G.tricks++; G.trick=[]; G.turn=w; }
+}
+function expertMC(p,L){
+  const real=G, budget=140, samples=Math.max(10,Math.floor(budget/L.length));
+  const cost=new Map(L.map(c=>[cid(c),0]));
+  try{
+    for (let k=0;k<samples;k++){
+      G=real; const dealt=sampleHands(p); if (!dealt) continue;
+      for (const c of L){
+        G={...real, sim:true, levels:[2,2,2,2], level:2,
+           hands:real.hands.map((h,i)=>i===p?h.slice():dealt[i].slice()),
+           trick:real.trick.slice(), played:real.played.slice(), voids:real.voids.map(v=>({...v})), handPts:real.handPts.slice(), turn:p};
+        simPlay(c);
+        let guard=60; while (G.tricks<13 && guard--) simPlay(cpuChoose(G.turn));
+        const sh=G.handPts.indexOf(26);
+        cost.set(cid(c), cost.get(cid(c)) + (sh===p ? -20 : sh>=0 ? 26 : G.handPts[p]));
+      }
+    }
+  } finally { G=real; }
+  return minBy(L,c=>cost.get(cid(c)));
+}
+function expertLead(p,L){
+  const U=unseen(p), qsUnseen=U.some(isQS), haveQS=G.hands[p].some(isQS);
+  const others=[1,2,3].map(k=>(p+k)%4);
+  let best=L[0], bv=Infinity;
+  for (const c of L){
+    const hi=U.filter(x=>x.s===c.s&&x.r>c.r).length, lo=U.filter(x=>x.s===c.s&&x.r<c.r).length;
+    const voids=others.filter(o=>G.voids[o][c.s]).length;
+    let v=0;
+    if (isQS(c)) v+= hi ? 3 : 40;
+    if (hi+lo===0) v+=8;                                         // nobody can follow: I win and eat dumps
+    else if (hi===0) v+=4+(c.s==="H"?3:0)+voids*(qsUnseen&&!haveQS?9:2);   // certain winner
+    else v+=(lo===0?-2:0)+voids*(qsUnseen?3:1)+(c.r/14)*2*(lo/(hi+lo));    // risk grows with rank
+    if (c.s==="S" && qsUnseen && !haveQS){ if (c.r<12) v-=3; else v+=20; }   // flush the Q♠ safely
+    if (c.s==="S" && haveQS && !isQS(c)) v+=2;                    // keep spades guarding my Q♠
+    if (c.s==="H") v+=1;
+    if (v<bv){ bv=v; best=c; }
+  }
+  return best;
+}
 function chooseLead(p,L,lv){
+  if (lv>=3) return expertLead(p,L);
   const h=G.hands[p], qsGone=G.played.includes("12S"), haveQS=h.some(isQS);
   if (lv>=2 && !qsGone && !haveQS){ const sp=L.filter(c=>c.s==="S"&&c.r<12); if (sp.length) return maxBy(sp,c=>c.r); }
   let cand=L.filter(c=>!isQS(c) && !(lv>=2 && !qsGone && c.s==="S" && c.r>12));
@@ -324,6 +423,13 @@ function chooseFollow(p,L,lv){
   if (under.length) return maxBy(under,c=>c.r);                    // duck as high as possible
   if (last && (tp===0 || lv<2)) return maxBy(nonQ.length?nonQ:L,c=>c.r);
   if (last) return maxBy(nonQ.length?nonQ:L,c=>c.r);
+  if (lv>=3 && tp===0 && lead!=="H"){
+    // Counting: if nobody after me can dump the Q♠ or hearts here, it's safe to shed my highest card
+    const after=[1,2,3].map(k=>(p+k)%4).slice(0,3-T.length);
+    const U=unseen(p), qsOut=U.some(isQS);
+    const dumpRisk=after.some(o=>G.voids[o][lead]) || (lead==="S" && qsOut);
+    if (!dumpRisk) return maxBy(nonQ.length?nonQ:L,c=>c.r);
+  }
   return minBy(nonQ.length?nonQ:L,c=>c.r);
 }
 function trickWinnerPartial(){ const lead=G.trick[0].c.s; return G.trick.filter(t=>t.c.s===lead).reduce((a,b)=>b.c.r>a.c.r?b:a).p; }
@@ -332,6 +438,7 @@ function chooseDiscard(p,L,lv){
   const qs=L.find(isQS); if (qs) return qs;
   if (lv>=2 && !G.played.includes("12S")){ const hi=L.filter(c=>c.s==="S"&&c.r>12); if (hi.length) return maxBy(hi,c=>c.r); }
   const hs=L.filter(c=>c.s==="H"); if (hs.length) return maxBy(hs,c=>c.r);
+  if (lv>=3){ const cnt=s=>G.hands[p].filter(x=>x.s===s).length; return maxBy(L,c=>c.r-2*cnt(c.s)+(cnt(c.s)===1?6:0)); }
   if (lv>=2){ const cnt=s=>G.hands[p].filter(x=>x.s===s).length; return maxBy(L,c=>c.r-2*cnt(c.s)); }
   return maxBy(L,c=>c.r);
 }
@@ -344,7 +451,7 @@ function render(){
   $("title").textContent="Hearts · "+LEVELS[G.level];
   for (let p=0;p<4;p++){
     const el=$("seat"+p), n=G.hands[p].length;
-    const backs = `<div class="backs">${Array.from({length:Math.min(n,13)},()=>'<div class="back"></div>').join("")}</div>`;
+    const backs = `<div class="backs">${Array.from({length:Math.min(n,13)},()=>`<div class="back" style="background:${backBg(p)}"></div>`).join("")}</div>`;
     const lead = (G.phase==="play" && G.tricks===0 && !G.trick.length && G.turn===p) ? "" : "";
     el.className="seat"+(G.phase==="play"&&G.turn===p&&G.trick.length<4?" turn":"");
     const av = p===0 ? "" : (G.names?`<img class="av" src="${CATS[G.names[p]]}" alt="">`:"");
@@ -448,7 +555,7 @@ function showStart(){
     dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Hearts</h1><p style="margin:0">You vs. 3 cats. Avoid hearts and the Q♠.</p></div></div>
       ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue saved game</button></div>`:""}
       <div class="lbl">Difficulty</div>
-      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}" ${i===4?'style="grid-column:span 2"':""}>${i===4?"🎲 Mixed (one of each)":l}</button>`).join("")}</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}" ${i===4?'style="grid-column:span 2"':""}>${i===4?"🎲 Mixed":l}</button>`).join("")}</div>
       <div class="lbl">Play to</div>
       <div class="seg" style="grid-template-columns:repeat(3,1fr)">${[50,75,100].map(t=>`<button data-t="${t}" class="${t===target?"on":""}">${t} points</button>`).join("")}</div>
       <div class="lbl">Game speed</div>
@@ -466,6 +573,7 @@ function showStart(){
 function resume(saved){
   G=saved; sel.clear();
   if (!G.levels) G.levels=[null,G.level,G.level,G.level];
+  if (!G.backs) G.backs=shuffle(BACKS.map((_,i)=>i)).slice(0,4);
   if (!G.names) G.names=["You",...shuffle(Object.keys(CATS)).slice(0,3)];
   render();
   if (G.phase==="pass") setMsg(`Choose 3 cards to pass <b>${PASSNAME[G.dir]}</b>.`);
