@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Game Room">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1916">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Hearts</title>
+<script>
+  (function(){ let t=null; try{ t=localStorage.getItem("wordrack-theme"); }catch(e){}
+    if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+    document.documentElement.dataset.theme=t; })();
+</script>
+<style>
+  :root{
+    --bg:#f4efe6; --ink:#2b2621; --muted:#7a6f63; --line:#d6c9b1; --panel:#fff8ec; --accent:#2f6f5e;
+    --felt:#2f6b55; --feltEdge:#25574a; --feltInk:#eaf3ee; --card:#fffdf8; --cardEdge:#d9cfbf; --red:#c0392b; --black:#24211d;
+  }
+  :root[data-theme=dark]{
+    --bg:#1b1916; --ink:#efe7da; --muted:#a39886; --line:#3e3933; --panel:#26231f; --accent:#3d8a75;
+    --felt:#1f4a3b; --feltEdge:#183a2f; --feltInk:#d9ebe3; --card:#f4efe5; --cardEdge:#b9ad99;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{max-width:540px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+    padding:calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .top h1{flex:1;margin:0;font-size:20px;text-align:center}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:8px 11px;text-decoration:none}
+  #table{position:relative;flex:1;min-height:330px;background:radial-gradient(ellipse at center,var(--felt) 55%,var(--feltEdge));border-radius:18px;
+    display:grid;grid-template-columns:.75fr 2fr .75fr;grid-template-rows:auto 1fr auto;grid-template-areas:". n ." "w t e" ". s .";padding:8px;color:var(--feltInk)}
+  .seat{display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;text-align:center;gap:3px;padding:4px;border-radius:12px}
+  .seat.turn{box-shadow:0 0 0 2px #f5d562 inset}
+  .seat .nm{font-weight:700;font-size:14px}
+  .seat .sc{font-size:12px;opacity:.9}
+  .seat .sc b{font-size:16px}
+  .backs{display:flex;height:30px;align-items:center}
+  .back{width:16px;height:24px;border-radius:3px;background:repeating-linear-gradient(45deg,#8d3b32 0 3px,#a8483d 3px 6px);border:1.5px solid #f3e9d8;margin-left:-12px}
+  .back:first-child{margin-left:0}
+  #seat1{grid-area:w} #seat2{grid-area:n} #seat3{grid-area:e} #seat0{grid-area:s}
+  #trick{grid-area:t;position:relative;min-height:215px}
+  #trick .card{position:absolute;left:50%;top:50%;transition:transform .18s ease}
+  #trick .p0{transform:translate(-50%,6%)} #trick .p1{transform:translate(-152%,-50%)}
+  #trick .p2{transform:translate(-50%,-106%)} #trick .p3{transform:translate(52%,-50%)}
+  #trick .card.win{box-shadow:0 0 0 3px #f5d562,0 4px 10px rgba(0,0,0,.35)}
+  .tag{display:inline-block;background:rgba(0,0,0,.25);padding:1px 7px;border-radius:9px;font-size:11px;margin-top:2px}
+  #msg{min-height:40px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:15px;padding:6px 4px;line-height:1.3}
+  #hand{position:relative;height:calc(min(17vw,78px) * 1.42 + 22px);margin-top:2px}
+  .card{width:min(17vw,78px);height:calc(min(17vw,78px) * 1.42);background:var(--card);border:1px solid var(--cardEdge);border-radius:8px;
+    box-shadow:0 2px 5px rgba(0,0,0,.2);position:relative;color:var(--black);user-select:none;-webkit-user-select:none}
+  .card.red{color:var(--red)}
+  .card .cr{position:absolute;left:5px;top:3px;font-weight:800;font-size:min(5vw,22px);line-height:1}
+  .card .cs{position:absolute;left:5px;top:calc(3px + min(5vw,22px));font-size:min(4.4vw,19px);line-height:1}
+  .card .cb{position:absolute;right:6px;bottom:4px;font-size:min(8.5vw,38px);line-height:1}
+  #trick .card{width:min(14vw,64px);height:calc(min(14vw,64px) * 1.42)}
+  #trick .card .cr{font-size:min(4.3vw,19px)} #trick .card .cs{top:calc(3px + min(4.3vw,19px));font-size:min(3.8vw,16px)} #trick .card .cb{font-size:min(7vw,30px)}
+  #hand .card{position:absolute;bottom:0;transition:transform .12s ease}
+  #hand .card.sel{transform:translateY(-18px);box-shadow:0 0 0 3px var(--accent),0 4px 10px rgba(0,0,0,.25)}
+  #hand .card.dim{filter:brightness(.62) saturate(.6)}
+  #hand .card.new::after{content:"";position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  #actions{display:flex;gap:8px;margin-top:8px;min-height:46px}
+  .btn{flex:1;padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn:disabled{opacity:.45}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .hidden{display:none}
+  .dcard{background:var(--bg);border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
+  .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:19px}
+  .dcard p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.4}
+  .lbl{font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  .seg{display:grid;gap:6px}
+  .seg button{padding:10px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;font-weight:600;color:var(--ink)}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stack{display:grid;gap:8px;margin-top:16px}
+  .res{width:100%;border-collapse:collapse;margin-top:8px;font-size:15px}
+  .res td,.res th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+  .res td:first-child,.res th:first-child{text-align:left}
+  .res th{font-size:12px;color:var(--muted);font-weight:600}
+  .brand{display:flex;align-items:center;gap:12px}
+  .cat{width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #ead39f,0 2px 8px rgba(0,0,0,.25);flex:0 0 auto}
+  .cat.big{width:120px;height:120px;display:block;margin:4px auto 10px}
+  textarea{width:100%;height:110px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="iconbtn" href="./">← Games</a>
+    <h1 id="title">Hearts</h1>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
+  <div id="table">
+    <div class="seat" id="seat2"></div>
+    <div class="seat" id="seat1"></div>
+    <div id="trick"></div>
+    <div class="seat" id="seat3"></div>
+    <div class="seat" id="seat0"></div>
+  </div>
+  <div id="msg"></div>
+  <div id="hand"></div>
+  <div id="actions"></div>
+</div>
+<div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const rnd=n=>Math.floor(Math.random()*n);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
+const SUITS=["C","D","S","H"], SYM={C:"♣",D:"♦",S:"♠",H:"♥"};
+const RN={11:"J",12:"Q",13:"K",14:"A"}, rs=r=>RN[r]||String(r);
+const cid=c=>c.r+c.s;
+const isQS=c=>c.s==="S"&&c.r===12;
+const pts=c=>c.s==="H"?1:(isQS(c)?13:0);
+const NAMES=["You","West","North","East"];
+const LEVELS=["Easy","Medium","Hard","Expert"];
+const PASSNAME=["left","right","across","hold"];
+const SAVE_KEY="hearts-save-v1", STATS_KEY="hearts-stats-v1", THEME_KEY="wordrack-theme";
+const maxBy=(a,f)=>a.reduce((b,x)=>f(x)>f(b)?x:b);
+const minBy=(a,f)=>a.reduce((b,x)=>f(x)<f(b)?x:b);
+
+let G=null, sel=new Set(), busy=false;
+
+// ---------- Storage ----------
+function readLocal(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function writeLocal(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function save(){ writeLocal(SAVE_KEY,G); }
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+// ---------- Game flow ----------
+function newGame(level,target){
+  G={level,target,scores:[0,0,0,0],handNo:0,history:[],over:false};
+  startHand();
+}
+function startHand(){
+  const deck=[]; for(const s of SUITS) for(let r=2;r<=14;r++) deck.push({s,r});
+  shuffle(deck);
+  G.hands=[0,1,2,3].map(i=>deck.slice(i*13,i*13+13));
+  G.hands.forEach(sortHand);
+  G.dir=G.handNo%4; G.trick=[]; G.lastTrick=null; G.handPts=[0,0,0,0]; G.tricks=0; G.broken=false;
+  G.played=[]; G.voids=[{},{},{},{}]; G.received=[];
+  sel.clear();
+  G.phase = G.dir===3 ? "play" : "pass";
+  if (G.phase==="play") beginPlay(); else { save(); render(); setMsg(`Choose 3 cards to pass <b>${PASSNAME[G.dir]}</b>.`); }
+}
+function sortHand(h){ h.sort((a,b)=>SUITS.indexOf(a.s)-SUITS.indexOf(b.s)||a.r-b.r); }
+const passTo=(i,d)=>d===0?(i+1)%4:d===1?(i+3)%4:(i+2)%4;
+function doPass(){
+  if (sel.size!==3) return;
+  const out=[0,1,2,3].map(p=> p===0 ? G.hands[0].filter(c=>sel.has(cid(c))) : cpuPass(p));
+  out.forEach((cards,p)=>{ G.hands[p]=G.hands[p].filter(c=>!cards.some(x=>cid(x)===cid(c))); });
+  out.forEach((cards,p)=>{ const t=passTo(p,G.dir); G.hands[t].push(...cards); if (t===0) G.received=cards.map(cid); });
+  G.hands.forEach(sortHand); sel.clear();
+  const from=NAMES[[3,1,2][G.dir]]; // who passed to you
+  G.phase="play"; beginPlay(`You got ${G.received.map(x=>label(x)).join(", ")} from ${from}.`);
+}
+function label(id){ const r=parseInt(id), s=id.slice(-1); return rs(r)+SYM[s]; }
+function beginPlay(note){
+  G.leader=G.turn=G.hands.findIndex(h=>h.some(c=>c.s==="C"&&c.r===2));
+  save(); render();
+  if (note) setMsg(note+(G.turn===0?" You lead the 2♣.":""));
+  step();
+}
+function legal(p){
+  const h=G.hands[p], T=G.trick;
+  if (!T.length){
+    if (G.tricks===0) return h.filter(c=>c.s==="C"&&c.r===2);
+    if (!G.broken){ const nh=h.filter(c=>c.s!=="H"); if (nh.length) return nh; }
+    return h.slice();
+  }
+  const lead=T[0].c.s, follow=h.filter(c=>c.s===lead);
+  if (follow.length) return follow;
+  if (G.tricks===0){ const safe=h.filter(c=>!pts(c)); if (safe.length) return safe; }
+  return h.slice();
+}
+function step(){
+  if (G.phase!=="play" || G.trick.length===4) return;
+  render();
+  if (G.turn!==0){ busy=true; setTimeout(()=>{ busy=false; if (G && G.phase==="play" && G.turn!==0 && G.trick.length<4) playCard(G.turn,cpuChoose(G.turn)); }, 520); }
+  else if (G.trick.length || G.tricks) setMsg(G.trick.length?"Your turn.":"Your lead.");
+}
+function playCard(p,c){
+  G.hands[p]=G.hands[p].filter(x=>cid(x)!==cid(c));
+  if (G.trick.length && c.s!==G.trick[0].c.s) G.voids[p][G.trick[0].c.s]=true;
+  G.trick.push({p,c}); G.played.push(cid(c));
+  if (c.s==="H") G.broken=true;
+  if (p===0){ G.received=[]; sel.clear(); }
+  G.turn=(p+1)%4;
+  save(); render();
+  if (G.trick.length===4){ busy=true; const w=trickWinner(); markWinner(w); setTimeout(()=>{ busy=false; resolveTrick(); }, 1000); }
+  else step();
+}
+function trickWinner(){ const lead=G.trick[0].c.s; return G.trick.filter(t=>t.c.s===lead).reduce((a,b)=>b.c.r>a.c.r?b:a).p; }
+function resolveTrick(){
+  const w=trickWinner(), p=G.trick.reduce((s,t)=>s+pts(t.c),0);
+  G.handPts[w]+=p; G.tricks++; G.lastTrick=G.trick; G.trick=[]; G.leader=G.turn=w;
+  setMsg(p ? `${w===0?"You take":NAMES[w]+" takes"} ${p} point${p>1?"s":""}.` : `${w===0?"You win":NAMES[w]+" wins"} the trick.`);
+  if (G.tricks===13) endHand(); else { save(); step(); }
+}
+function endHand(){
+  const shooter=G.handPts.indexOf(26);
+  const add=shooter>=0 ? G.handPts.map((_,i)=>i===shooter?0:26) : G.handPts.slice();
+  add.forEach((v,i)=>G.scores[i]+=v);
+  G.history.push({pts:add,moon:shooter});
+  G.phase="handEnd";
+  if (Math.max(...G.scores)>=G.target){ G.over=true; G.phase="over"; G.result=recordResult(shooter===0); }
+  else if (shooter===0) bumpStat("moons");
+  save(); render(); showHandSummary(shooter,add);
+}
+function nextHand(){ G.handNo++; startHand(); }
+
+// ---------- CPU ----------
+function unseen(p){ const known=new Set([...G.played,...G.hands[p].map(cid),...G.trick.map(t=>cid(t.c))]); const out=[]; for(const s of SUITS) for(let r=2;r<=14;r++) if(!known.has(r+s)) out.push({s,r}); return out; }
+function moonThreat(p){
+  const tot=G.handPts.reduce((a,b)=>a+b,0)+G.trick.reduce((s,t)=>s+pts(t.c),0);
+  if (tot<8) return -1;
+  for (let q=0;q<4;q++) if (q!==p && G.handPts[q]===G.handPts.reduce((a,b)=>a+b,0) && G.handPts[q]>=8) return q;
+  return -1;
+}
+function cpuPass(p){
+  const h=G.hands[p], lv=G.level;
+  if (lv===0) return shuffle(h.slice()).slice(0,3);
+  const cnt=s=>h.filter(x=>x.s===s).length;
+  const lowSp=h.filter(x=>x.s==="S"&&x.r<12).length;
+  const val=c=>{
+    if (lv===1) return c.r+(c.s==="H"?0.5:0)+(isQS(c)?6:0);
+    let v=c.r;
+    if (c.s==="S"){ if (c.r>=12) v=(lv===3&&lowSp>=4)?1:(c.r===12?40:30+c.r); else v=-5; }
+    if (c.s==="H" && c.r>=10) v+=4;
+    if ((c.s==="C"||c.s==="D") && cnt(c.s)<=2) v+=8;
+    return v;
+  };
+  return h.slice().sort((a,b)=>val(b)-val(a)).slice(0,3);
+}
+function cpuChoose(p){
+  const L=legal(p), lv=G.level;
+  if (L.length===1) return L[0];
+  if (lv===0 || (lv===1 && Math.random()<0.25)) return L[rnd(L.length)];
+  if (!G.trick.length) return chooseLead(p,L,lv);
+  const lead=G.trick[0].c.s;
+  return L[0].s===lead ? chooseFollow(p,L,lv) : chooseDiscard(p,L,lv);
+}
+function chooseLead(p,L,lv){
+  const h=G.hands[p], qsGone=G.played.includes("12S"), haveQS=h.some(isQS);
+  if (lv>=2 && !qsGone && !haveQS){ const sp=L.filter(c=>c.s==="S"&&c.r<12); if (sp.length) return maxBy(sp,c=>c.r); }
+  let cand=L.filter(c=>!isQS(c) && !(lv>=2 && !qsGone && c.s==="S" && c.r>12));
+  if (!cand.length) cand=L;
+  const U=unseen(p);
+  return minBy(cand,c=>{
+    let v=c.r + (c.s==="H"?3:0);
+    if (lv>=2) for (let q=1;q<4;q++){ const o=(p+q)%4; if (G.voids[o][c.s]) v+=10; }
+    if (lv>=3){ const lower=U.filter(x=>x.s===c.s&&x.r<c.r).length, higher=U.filter(x=>x.s===c.s&&x.r>c.r).length; if (!lower && higher) v-=4; if (!higher) v+=6; }
+    return v;
+  });
+}
+function chooseFollow(p,L,lv){
+  const T=G.trick, lead=T[0].c.s, win=Math.max(...T.filter(t=>t.c.s===lead).map(t=>t.c.r));
+  const winner=trickWinnerPartial(), last=T.length===3, tp=T.reduce((s,t)=>s+pts(t.c),0);
+  const nonQ=L.filter(c=>!isQS(c));
+  if (lv>=3){ const q=moonThreat(p); if (q>=0 && winner===q){ const over=nonQ.filter(c=>c.r>win); if (over.length) return minBy(over,c=>c.r); } }
+  if (G.tricks===0) return maxBy(nonQ.length?nonQ:L,c=>c.r);       // first trick carries no points
+  if (lead==="S" && lv>=2){ const qs=L.find(isQS); if (qs && win>12) return qs; }
+  const under=L.filter(c=>c.r<win);
+  if (under.length) return maxBy(under,c=>c.r);                    // duck as high as possible
+  if (last && (tp===0 || lv<2)) return maxBy(nonQ.length?nonQ:L,c=>c.r);
+  if (last) return maxBy(nonQ.length?nonQ:L,c=>c.r);
+  return minBy(nonQ.length?nonQ:L,c=>c.r);
+}
+function trickWinnerPartial(){ const lead=G.trick[0].c.s; return G.trick.filter(t=>t.c.s===lead).reduce((a,b)=>b.c.r>a.c.r?b:a).p; }
+function chooseDiscard(p,L,lv){
+  if (lv>=3){ const q=moonThreat(p); if (q>=0 && trickWinnerPartial()===q){ const np=L.filter(c=>!pts(c)); if (np.length) return maxBy(np,c=>c.r); } }
+  const qs=L.find(isQS); if (qs) return qs;
+  if (lv>=2 && !G.played.includes("12S")){ const hi=L.filter(c=>c.s==="S"&&c.r>12); if (hi.length) return maxBy(hi,c=>c.r); }
+  const hs=L.filter(c=>c.s==="H"); if (hs.length) return maxBy(hs,c=>c.r);
+  if (lv>=2){ const cnt=s=>G.hands[p].filter(x=>x.s===s).length; return maxBy(L,c=>c.r-2*cnt(c.s)); }
+  return maxBy(L,c=>c.r);
+}
+
+// ---------- Rendering ----------
+function setMsg(h){ $("msg").innerHTML="<span>"+h+"</span>"; }
+function cardHTML(c,cls){ const red=c.s==="H"||c.s==="D"; return `<div class="card ${red?"red":""} ${cls||""}" data-id="${cid(c)}"><span class="cr">${rs(c.r)}</span><span class="cs">${SYM[c.s]}</span><span class="cb">${SYM[c.s]}</span></div>`; }
+function render(){
+  if (!G) return;
+  $("title").textContent="Hearts · "+LEVELS[G.level];
+  for (let p=0;p<4;p++){
+    const el=$("seat"+p), n=G.hands[p].length;
+    const backs = p===0 ? "" : `<div class="backs">${Array.from({length:Math.min(n,13)},()=>'<div class="back"></div>').join("")}</div>`;
+    const lead = (G.phase==="play" && G.tricks===0 && !G.trick.length && G.turn===p) ? "" : "";
+    el.className="seat"+(G.phase==="play"&&G.turn===p&&G.trick.length<4?" turn":"");
+    el.innerHTML=`<div class="nm">${NAMES[p]}</div>${backs}
+      <div class="sc"><b>${G.scores[p]}</b>${G.handPts[p]?` <span class="tag">+${G.handPts[p]} this hand</span>`:""}</div>${lead}`;
+  }
+  // trick
+  $("trick").innerHTML=G.trick.map(t=>cardHTML(t.c,"p"+t.p)).join("") || (G.phase==="pass"?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:.85;text-align:center">Pass ${PASSNAME[G.dir]}<br>${G.dir===0?"⬅️":G.dir===1?"➡️":"⬆️"}</div>`:"");
+  // hand
+  const h=G.hands[0], H=$("hand"), W=H.clientWidth;
+  const myTurn = G.phase==="play" && G.turn===0 && !busy && G.trick.length<4;
+  const L=myTurn?new Set(legal(0).map(cid)):null;
+  const tmp=document.createElement("div"); tmp.innerHTML=cardHTML({s:"C",r:2}); document.body.appendChild(tmp.firstChild); const cw=document.body.lastChild.offsetWidth; document.body.lastChild.remove();
+  const n=h.length, stepX=n>1?Math.min(cw+4,(W-cw)/(n-1)):0, start=(W-(cw+stepX*(n-1)))/2;
+  H.innerHTML=h.map((c,i)=>{
+    let cls=sel.has(cid(c))?"sel":"";
+    if (myTurn && !L.has(cid(c))) cls+=" dim";
+    if (G.received.includes(cid(c))) cls+=" new";
+    return cardHTML(c,cls).replace('class="card','style="left:'+(start+i*stepX)+'px;z-index:'+i+'" class="card');
+  }).join("");
+  // actions
+  const A=$("actions");
+  if (G.phase==="pass") A.innerHTML=`<button class="btn primary" id="passGo" ${sel.size===3?"":"disabled"}>Pass ${sel.size}/3 ${PASSNAME[G.dir]}</button>`;
+  else if (G.phase==="handEnd") A.innerHTML=`<button class="btn primary" id="nextGo">Next hand</button>`;
+  else if (G.phase==="over") A.innerHTML=`<button class="btn primary" id="againGo">New game</button>`;
+  else A.innerHTML=G.lastTrick?`<button class="btn" id="lastGo">Last trick</button>`:"";
+  if ($("passGo")) $("passGo").onclick=doPass;
+  if ($("nextGo")) $("nextGo").onclick=nextHand;
+  if ($("againGo")) $("againGo").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  if ($("lastGo")) $("lastGo").onclick=showLastTrick;
+}
+function markWinner(w){ const el=[...$("trick").children].find(x=>x.classList.contains("p"+w)); if (el) el.classList.add("win"); }
+$("hand").addEventListener("click",e=>{
+  const el=e.target.closest(".card"); if (!el || !G) return;
+  const id=el.dataset.id;
+  if (G.phase==="pass"){
+    if (sel.has(id)) sel.delete(id); else if (sel.size<3) sel.add(id);
+    render(); return;
+  }
+  if (G.phase!=="play" || G.turn!==0 || busy || G.trick.length===4) return;
+  const c=G.hands[0].find(x=>cid(x)===id);
+  if (!legal(0).some(x=>cid(x)===id)){
+    const T=G.trick;
+    if (!T.length && G.tricks===0) setMsg("The 2♣ leads the first trick.");
+    else if (T.length && G.hands[0].some(x=>x.s===T[0].c.s)) setMsg(`You have to follow suit (${SYM[T[0].c.s]}).`);
+    else if (!T.length) setMsg("Hearts haven't been broken yet.");
+    else setMsg("No points on the first trick.");
+    return;
+  }
+  if (sel.has(id)) playCard(0,c);
+  else { sel.clear(); sel.add(id); render(); setMsg("Tap again to play."); }
+});
+window.addEventListener("resize",()=>render());
+
+// ---------- Dialogs ----------
+function dialog(html){ $("dlg").innerHTML=html; $("dialog").classList.remove("hidden"); }
+function closeDialog(){ $("dialog").classList.add("hidden"); }
+function showLastTrick(){
+  const t=G.lastTrick; if (!t) return;
+  const lead=t[0].c.s, w=t.filter(x=>x.c.s===lead).reduce((a,b)=>b.c.r>a.c.r?b:a).p;
+  dialog(`<h2>Last trick</h2><table class="res">${t.map(x=>`<tr><td>${NAMES[x.p]}${x.p===w?" ✓":""}</td><td style="color:${x.c.s==="H"||x.c.s==="D"?"var(--red)":"inherit"};font-weight:700">${rs(x.c.r)}${SYM[x.c.s]}</td></tr>`).join("")}</table>
+    <div class="stack"><button class="btn primary" id="ltOk">Close</button></div>`);
+  $("ltOk").onclick=closeDialog;
+}
+function scoreTable(){
+  const rows=G.history.map((h,i)=>`<tr><td>Hand ${i+1}${h.moon>=0?" 🌙":""}</td>${h.pts.map(v=>`<td>${v}</td>`).join("")}</tr>`).join("");
+  return `<table class="res"><tr><th></th>${NAMES.map(n=>`<th>${n}</th>`).join("")}</tr>${rows}
+    <tr><td><b>Total</b></td>${G.scores.map(v=>`<td><b>${v}</b></td>`).join("")}</tr></table>`;
+}
+function showHandSummary(shooter){
+  if (G.over){ showResults(); return; }
+  const moonMsg = shooter===0 ? "<p>🌙 You shot the moon! Everyone else gets 26.</p>" : shooter>0 ? `<p>🌙 ${NAMES[shooter]} shot the moon.</p>` : "";
+  dialog(`<h2>Hand ${G.handNo+1} done</h2>${moonMsg}${scoreTable()}<p>Playing to ${G.target}. Lowest score wins.</p>
+    <div class="stack"><button class="btn primary" id="hsNext">Next hand</button><button class="btn" id="hsView">View table</button></div>`);
+  $("hsNext").onclick=()=>{ closeDialog(); nextHand(); };
+  $("hsView").onclick=closeDialog;
+}
+function showResults(){
+  const r=G.result||{};
+  const won=r.res==="w";
+  const title= won ? "You win! 🎉" : r.res==="t" ? "It's a tie" : `${NAMES[G.scores.indexOf(Math.min(...G.scores))]} wins`;
+  dialog(`${won?`<img class="cat big" src="icon-192.png" alt="Glorg">`:""}<h2 style="text-align:${won?"center":"left"}">${title}</h2>
+    ${won?`<p style="text-align:center;margin-top:-4px">Glorg is very proud of you.</p>`:""}${scoreTable()}${r.line?`<p>${r.line}</p>`:""}
+    <div class="stack"><button class="btn primary" id="rAgain">Play again</button><button class="btn" id="rStats">Stats</button><button class="btn" id="rView">View table</button></div>`);
+  $("rAgain").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  $("rStats").onclick=()=>{ statsBack=showResults; showStats(); };
+  $("rView").onclick=closeDialog;
+}
+function showStart(){
+  const saved=readLocal(SAVE_KEY);
+  let level=1, target=100;
+  const draw=()=>{
+    dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Hearts</h1><p style="margin:0">You vs. 3 computer players. Avoid hearts and the Q♠.</p></div></div>
+      ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue saved game</button></div>`:""}
+      <div class="lbl">Difficulty</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}">${l}</button>`).join("")}</div>
+      <div class="lbl">Play to</div>
+      <div class="seg" style="grid-template-columns:repeat(3,1fr)">${[50,75,100].map(t=>`<button data-t="${t}" class="${t===target?"on":""}">${t} points</button>`).join("")}</div>
+      <div class="stack"><button class="btn ${saved&&!saved.over?"":"primary"}" id="sNew">New game</button><button class="btn" id="sStats">📊 Stats</button></div>`);
+    $("dlg").querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{level=+b.dataset.lv;draw();});
+    $("dlg").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{target=+b.dataset.t;draw();});
+    $("sNew").onclick=()=>{ closeDialog(); newGame(level,target); };
+    $("sStats").onclick=()=>{ statsBack=draw; showStats(); };
+    if ($("sCont")) $("sCont").onclick=()=>{ closeDialog(); resume(saved); };
+  };
+  draw();
+}
+function resume(saved){
+  G=saved; sel.clear(); render();
+  if (G.phase==="pass") setMsg(`Choose 3 cards to pass <b>${PASSNAME[G.dir]}</b>.`);
+  else if (G.phase==="handEnd") showHandSummary(G.history[G.history.length-1].moon);
+  else if (G.phase==="over") showResults();
+  else if (G.trick.length===4){ markWinner(trickWinner()); setTimeout(resolveTrick,700); }
+  else { setMsg("Welcome back!"); step(); }
+}
+function showMenu(){
+  dialog(`<h2>Menu</h2><div class="stack">
+    <button class="btn primary" id="mBack">Back to game</button>
+    <button class="btn" id="mScores">Scoreboard</button>
+    <button class="btn" id="mNew">New game</button>
+    <button class="btn" id="mStats">📊 Stats</button>
+    <button class="btn" id="mTheme">${document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mRules">How to play</button>
+    <a class="btn" href="./" style="text-align:center;text-decoration:none">← All games</a></div>`);
+  $("mBack").onclick=closeDialog;
+  $("mScores").onclick=()=>{ dialog(`<h2>Scoreboard</h2>${G&&G.history.length?scoreTable():"<p>No hands finished yet.</p>"}<div class="stack"><button class="btn primary" id="sbOk">Close</button></div>`); $("sbOk").onclick=closeDialog; };
+  $("mNew").onclick=()=>{
+    dialog(`<h2>Start a new game?</h2><p>Your current game will be lost.</p><div class="stack"><button class="btn primary" id="yN">Yes, new game</button><button class="btn" id="nN">Cancel</button></div>`);
+    $("yN").onclick=()=>{ writeLocal(SAVE_KEY,null); G=null; showStart(); }; $("nN").onclick=closeDialog;
+  };
+  $("mStats").onclick=()=>{ statsBack=null; showStats(); };
+  $("mTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; writeLocal(THEME_KEY,null); try{localStorage.setItem(THEME_KEY,t);}catch(e){} showMenu(); };
+  $("mRules").onclick=()=>{
+    dialog(`<h2>How to play</h2>
+      <p>Each hand, pass 3 cards (left, right, across, then no pass, repeating).</p>
+      <p>Whoever has the 2♣ leads it. You must follow suit if you can; otherwise play anything. The highest card of the suit led wins the trick.</p>
+      <p>Each ♥ is 1 point and the Q♠ is 13. You can't lead hearts until one has been played, and no points can be played on the first trick.</p>
+      <p><b>Shoot the moon:</b> take all 13 hearts and the Q♠ and everyone else gets 26 instead.</p>
+      <p>The game ends when someone reaches the target. Lowest score wins.</p>
+      <p>Tap a card to pick it, tap again to play it.</p>
+      <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
+    $("rOk").onclick=closeDialog;
+  };
+}
+$("menuBtn").onclick=()=>{ if (G) showMenu(); else showStart(); };
+
+// ---------- Stats ----------
+let statsBack=null;
+function blankStats(){ return {records:{},games:0,streak:0,bestStreak:0,best:null,moons:0}; }
+function loadStats(){ return Object.assign(blankStats(), readLocal(STATS_KEY)||{}); }
+function saveStats(s){ writeLocal(STATS_KEY,s); }
+function bumpStat(k){ const s=loadStats(); s[k]=(s[k]||0)+1; saveStats(s); }
+function recordResult(moonedLastHand){
+  const st=loadStats(), me=G.scores[0], others=G.scores.slice(1), low=Math.min(...others);
+  const res= me<low ? "w" : me===low ? "t" : "l";
+  const key=`${G.level}|${G.target}`; const r=st.records[key]||(st.records[key]={w:0,l:0,t:0}); r[res]++;
+  st.games++;
+  if (res==="w"){ st.streak++; st.bestStreak=Math.max(st.bestStreak,st.streak); if (st.best==null||me<st.best) st.best=me; } else if (res==="l") st.streak=0;
+  if (moonedLastHand) st.moons=(st.moons||0)+1;
+  saveStats(st);
+  let w=0,l=0; for (const k in st.records){ w+=st.records[k].w; l+=st.records[k].l; }
+  return {res, line: res==="w" ? `Win streak: ${st.streak}` : `Record: ${w}–${l}`};
+}
+function showStats(){
+  const st=loadStats(); let w=0,l=0,t=0;
+  for (const k in st.records){ w+=st.records[k].w; l+=st.records[k].l; t+=st.records[k].t; }
+  const rows=[]; for (let lv=0;lv<4;lv++) for (const tg of [50,75,100]){ const r=st.records[`${lv}|${tg}`]; if (r) rows.push(`<tr><td>${LEVELS[lv]} · to ${tg}</td><td>${r.w}–${r.l}${r.t?"–"+r.t:""}</td></tr>`); }
+  dialog(`<h2>Hearts stats</h2><table class="res">
+      <tr><td>Record (W–L${t?"–T":""})</td><td>${w}–${l}${t?"–"+t:""}</td></tr>
+      <tr><td>Win rate</td><td>${st.games?Math.round(100*w/st.games)+"%":"–"}</td></tr>
+      <tr><td>Current win streak</td><td>${st.streak}</td></tr>
+      <tr><td>Best win streak</td><td>${st.bestStreak}</td></tr>
+      <tr><td>Best winning score (lowest)</td><td>${st.best??"–"}</td></tr>
+      <tr><td>Moons shot 🌙</td><td>${st.moons||0}</td></tr></table>
+    ${rows.length?`<div class="lbl">By difficulty</div><table class="res">${rows.join("")}</table>`:`<p>Finish a game to start your record.</p>`}
+    <div class="stack"><button class="btn primary" id="stClose">Close</button><button class="btn" id="stExp">Export stats (backup)</button><button class="btn" id="stImp">Import stats</button><button class="btn" id="stReset">Reset stats</button></div>`);
+  $("stClose").onclick=()=>{ statsBack?statsBack():closeDialog(); };
+  $("stExp").onclick=()=>{
+    const code="HR1:"+btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    dialog(`<h2>Export stats</h2><p>Copy this code somewhere safe. Paste it into Import to restore.</p><textarea id="eC" readonly>${code}</textarea><p id="eM"></p>
+      <div class="stack"><button class="btn primary" id="eCp">Copy code</button><button class="btn" id="eB">Back</button></div>`);
+    $("eCp").onclick=()=>{ const ta=$("eC"); ta.focus(); ta.select(); const ok=()=>$("eM").textContent="Copied ✓", bad=()=>$("eM").textContent="Long-press the selected code and choose Copy.";
+      try{ navigator.clipboard.writeText(code).then(ok,()=>{ try{ document.execCommand("copy")?ok():bad(); }catch(e){bad();} }); }catch(e){ bad(); } };
+    $("eB").onclick=showStats;
+  };
+  $("stImp").onclick=()=>{
+    dialog(`<h2>Import stats</h2><p>Paste a Hearts code from Export. This replaces your current Hearts stats.</p><textarea id="iC"></textarea><p id="iM"></p>
+      <div class="stack"><button class="btn primary" id="iGo">Import</button><button class="btn" id="iB">Back</button></div>`);
+    $("iGo").onclick=()=>{ try{ const raw=$("iC").value.trim(); if(!raw.startsWith("HR1:")) throw 0; const o=JSON.parse(decodeURIComponent(escape(atob(raw.slice(4))))); if(!o||typeof o.records!=="object") throw 0; saveStats(Object.assign(blankStats(),o)); showStats(); }catch(e){ $("iM").textContent="That code doesn't look right."; } };
+    $("iB").onclick=showStats;
+  };
+  $("stReset").onclick=()=>{
+    dialog(`<h2>Reset Hearts stats?</h2><p>This can't be undone.</p><div class="stack"><button class="btn primary" id="rsY">Reset</button><button class="btn" id="rsN">Cancel</button></div>`);
+    $("rsY").onclick=()=>{ saveStats(blankStats()); showStats(); }; $("rsN").onclick=showStats;
+  };
+}
+
+// ---------- Boot ----------
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+(function(){
+  const saved=readLocal(SAVE_KEY);
+  if (saved && !saved.over && saved.hands) resume(saved); else showStart();
+})();
+</script>
+</body>
+</html>

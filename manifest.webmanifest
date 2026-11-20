@@ -1,6 +1,6 @@
 {
-  "name": "Word Rack",
-  "short_name": "Word Rack",
+  "name": "Game Room",
+  "short_name": "Game Room",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
