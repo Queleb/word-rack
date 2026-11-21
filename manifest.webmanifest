@@ -1,6 +1,6 @@
 {
-  "name": "Game Room",
-  "short_name": "Game Room",
+  "name": "Glorg's Games",
+  "short_name": "Glorg's Games",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Game Room">
+<meta name="apple-mobile-web-app-title" content="Glorg's Games">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1b1916">
 <link rel="manifest" href="manifest.webmanifest">
@@ -411,8 +411,11 @@ function chooseMove(moves, rack, level){
 
 // ---------- Cat table talk ----------
 let dmTimer=null;
+const TALK_KEY="cats-talk";
+const talkOn=()=>{ try{ return localStorage.getItem(TALK_KEY)!=="off"; }catch(e){ return true; } };
+function setTalk(on){ try{ localStorage.setItem(TALK_KEY,on?"on":"off"); }catch(e){} if (!on) $("dm").classList.remove("show"); }
 function dm(cat, kind, chance){
-  if (!cat || (chance!=null && Math.random()>chance)) return;
+  if (!cat || !talkOn() || (chance!=null && Math.random()>chance)) return;
   const el=$("dm"); el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${GameCats.line(kind,cat)}</div>`;
   el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),4800);
 }
@@ -615,10 +618,13 @@ function showStart(){
       <div class="seg" style="grid-template-columns:repeat(3,1fr)">${[1,2,3].map(n=>`<button data-n="${n}" class="${n===numCpu?"on":""}">${n} CPU</button>`).join("")}</div>
       <div class="lbl">Difficulty</div>
       <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}">${l}</button>`).join("")}</div>
+      <div class="lbl">Cat smack talk</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)"><button data-talk="1" class="${talkOn()?"on":""}">On 😼</button><button data-talk="0" class="${talkOn()?"":"on"}">Off 😶</button></div>
       <div class="stack"><button class="btn ${saved&&!saved.over?"":"primary"}" id="goBtn">New game</button><button class="btn" id="stStats">📊 Stats</button><a class="btn" href="./" style="text-align:center;text-decoration:none;display:block">← All games</a></div>`);
     $("stStats").onclick=()=>{ statsBack=draw_; showStats(); };
     $("dlgCard").querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{numCpu=+b.dataset.n;draw_();});
     $("dlgCard").querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{level=+b.dataset.lv;draw_();});
+    $("dlgCard").querySelectorAll("[data-talk]").forEach(b=>b.onclick=()=>{setTalk(b.dataset.talk==="1");draw_();});
     $("goBtn").onclick=()=>{closeDialog();newGame(numCpu,level);};
     if ($("contBtn")) $("contBtn").onclick=()=>{closeDialog();resume(saved);};
   };
@@ -638,10 +644,12 @@ function showMenu(){
     <button class="btn" id="mNew">New game</button>
     <button class="btn" id="mStats">📊 Stats</button>
     <button class="btn" id="mTheme">${isDark()?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mTalk">Cat smack talk: ${talkOn()?"On 😼":"Off 😶"}</button>
     <button class="btn" id="mRules">How to play</button>
     <a class="btn" href="./" style="text-align:center;text-decoration:none;display:block">← All games</a></div>`);
   $("mTheme").onclick=()=>{ setTheme(isDark()?"light":"dark"); showMenu(); };
   $("mResume").onclick=closeDialog;
+  $("mTalk").onclick=()=>{ setTalk(!talkOn()); showMenu(); };
   $("mStats").onclick=()=>{ statsBack=null; showStats(); };
   $("mNew").onclick=()=>{
     dialog(`<h2>Start a new game?</h2><p>Your current game will be lost.</p><div class="stack">
