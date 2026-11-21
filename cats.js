@@ -66,6 +66,20 @@
     youPass: ["Stuck? Shocking.","Take your time. I'll nap.","Swapping won't save you.","Need a hint? Too bad."],
     cpuAhead: ["Should I go easy on you? No.","I'm not even trying. Okay, I'm a little trying.","This is fun. For me."],
     cpuBehind: ["I'm letting you win. On purpose.","I'm distracted by a bird, that's all.","Enjoy it while it lasts."],
+    draw: [
+      "{n} calls it a draw. {S} demands a rematch.",
+      "{n} says it's a tie, but {s} was clearly winning.",
+      "{n} has decided nobody wins. Except naps.",
+      "{n} shakes your hand. Well, {p} paw.",
+      "{n} is satisfied with a draw. For now.",
+      "{n} says you're evenly matched, which is a compliment to you.",
+    ],
+    // Chess table talk
+    chessHello: ["Prepare to be outplayed.","I've been practicing on the scratching post.","Let's make this quick, I have a nap scheduled.","Good luck. You'll need it.","I hope you like losing pieces."],
+    cpuTake: ["Mine now.","Thank you for the snack.","I'll be taking that.","Oops, did you need that?","Into the toy box it goes."],
+    youTake: ["Hey! I was using that.","That was a test. You passed. Barely.","Fine. Keep it.","I'm knocking one of your pieces off the table later.","Rude, but okay."],
+    cpuCheck: ["Check! Feeling nervous?","Check. Your king looks scared.","Check! I can smell fear.","Check. Run, little king."],
+    youCheck: ["Rude.","Check? I meant to let that happen.","My king is just stretching.","Hiss."],
   };
   function fill(t, n){
     const pr=P(n), x=other(n);

@@ -60,6 +60,11 @@
     <div><b>Sudoku<span class="badge" id="sB" hidden>In progress</span></b><span>Four difficulties, notes and hints</span></div>
     <div class="go">›</div>
   </a>
+  <a class="game" href="chess.html">
+    <div class="ic" style="background:#b78a62;color:#fffdf6;font-family:'Apple Symbols','Segoe UI Symbol','DejaVu Sans',serif">♞&#xFE0E;</div>
+    <div><b>Chess<span class="badge" id="cB" hidden>In progress</span></b><span>Take on all four cats</span></div>
+    <div class="go">›</div>
+  </a>
   <div class="foot"><button id="theme"></button></div>
 </main>
 <script>
@@ -68,6 +73,7 @@
   if (wr && !wr.over) document.getElementById("wrB").hidden=false;
   if (hr && !hr.over && hr.hands) document.getElementById("hB").hidden=false;
   const sd=get("sudoku-save-v1"); if (sd && !sd.over) document.getElementById("sB").hidden=false;
+  const ch=get("chess-save-v1"); if (ch && !ch.over) document.getElementById("cB").hidden=false;
   const tb=document.getElementById("theme");
   const lab=()=>tb.textContent=document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode";
   lab(); tb.onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; try{localStorage.setItem("wordrack-theme",t);}catch(e){} lab(); };

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glorg's Games">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1916">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Chess</title>
+<script>
+  (function(){ let t=null; try{ t=localStorage.getItem("wordrack-theme"); }catch(e){}
+    if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+    document.documentElement.dataset.theme=t; })();
+</script>
+<style>
+  :root{
+    --bg:#f4efe6; --ink:#2b2621; --muted:#7a6f63; --line:#d6c9b1; --panel:#fff8ec; --accent:#2f6f5e;
+    --light:#efdcb8; --dark:#b78a62; --lastL:#f2e38a; --lastD:#d9c25a; --sel:#7fc3a8; --dot:rgba(30,60,50,.38); --hint:#7fb3e6;
+  }
+  :root[data-theme=dark]{
+    --bg:#1b1916; --ink:#efe7da; --muted:#a39886; --line:#3e3933; --panel:#26231f; --accent:#3d8a75;
+    --light:#c9b493; --dark:#8a6648; --lastL:#d8c766; --lastD:#b39f3e; --sel:#5fa58a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{max-width:540px;margin:0 auto;padding:calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .top h1{flex:1;margin:0;font-size:20px;text-align:center}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:8px 11px;text-decoration:none}
+  .player{display:flex;align-items:center;gap:10px;padding:6px 4px}
+  .player img{width:40px;height:40px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px var(--line)}
+  .player.turn img,.player.turn .you{box-shadow:0 0 0 3px #e6b800}
+  .player .you{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);font-size:22px}
+  .player .nm{font-weight:700;font-size:15px}
+  .player .lv{font-size:12px;color:var(--muted)}
+  .player .caps{margin-left:auto;font-size:18px;letter-spacing:-3px;color:var(--muted);text-align:right;max-width:55%;line-height:1.1}
+  .player .adv{font-size:13px;letter-spacing:0;color:var(--ink);font-weight:700;margin-left:5px}
+  #boardWrap{position:relative}
+  #board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));aspect-ratio:1;width:100%;border-radius:6px;overflow:hidden;
+    container-type:inline-size;user-select:none;-webkit-user-select:none;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  .sq{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+  .sq.l{background:var(--light)} .sq.d{background:var(--dark)}
+  .sq.l.last{background:var(--lastL)} .sq.d.last{background:var(--lastD)}
+  .sq.sel{background:var(--sel)!important}
+  .sq.hint{box-shadow:inset 0 0 0 4px var(--hint)}
+  .sq.check::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(230,40,30,.85) 0,rgba(230,40,30,.45) 45%,transparent 72%)}
+  .sq.drop{box-shadow:inset 0 0 0 4px rgba(255,255,255,.75)}
+  .sq .dot{position:absolute;width:30%;height:30%;border-radius:50%;background:var(--dot);pointer-events:none}
+  .sq .ring{position:absolute;inset:4%;border-radius:50%;box-shadow:inset 0 0 0 0.9cqw var(--dot);pointer-events:none}
+  .co{position:absolute;font-size:2.1cqw;font-weight:700;opacity:.75;pointer-events:none}
+  .co.f{right:3%;bottom:1%} .co.r{left:4%;top:2%}
+  .sq.l .co{color:var(--dark)} .sq.d .co{color:var(--light)}
+  .pc{position:relative;z-index:1;font-size:10.2cqw;line-height:1;font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans","Noto Sans Symbols2",serif;touch-action:none;cursor:grab;transition:transform var(--slide,220ms) ease}
+  .pc.w{color:#fffdf6;-webkit-text-stroke:0.32cqw #2b2621;paint-order:stroke fill;text-shadow:0 0.3cqw 0.4cqw rgba(0,0,0,.35)}
+  .pc.b{color:#24201c;-webkit-text-stroke:0.12cqw #24201c;text-shadow:0 0.3cqw 0.4cqw rgba(0,0,0,.3)}
+  .pc.dragging{opacity:.25}
+  #ghost{position:fixed;z-index:60;pointer-events:none;font-size:56px;line-height:1;transform:translate(-50%,-70%);font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans",serif}
+  #dm{position:absolute;left:8px;right:8px;top:8px;z-index:5;display:flex;align-items:center;gap:8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:7px 10px;box-shadow:0 4px 14px rgba(0,0,0,.22);font-size:14px;pointer-events:none;opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s}
+  #dm.show{opacity:1;transform:none}
+  #dm img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+  #msg{min-height:22px;text-align:center;font-size:14px;margin:6px 0 2px}
+  #controls{display:flex;gap:6px;align-items:center;margin-top:6px}
+  .btn{padding:11px 8px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink);text-align:center;text-decoration:none;display:block}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn:disabled{opacity:.45}
+  #controls .btn{flex:1}
+  .switch{display:flex;align-items:center;gap:8px;flex:1.35;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:14px;font-weight:600;color:var(--ink)}
+  .switch .tg{margin-left:auto;width:40px;height:24px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:0 0 auto}
+  .switch .tg::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
+  .switch.on .tg{background:var(--accent)} .switch.on .tg::after{left:19px}
+  #history{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:14px;line-height:1.7;max-height:96px;overflow:auto;font-variant-numeric:tabular-nums}
+  #history .n{color:var(--muted);margin-right:3px}
+  #history .mv{margin-right:9px;white-space:nowrap}
+  #history .mv.cur{font-weight:800}
+  #history:empty::before{content:"Moves will show up here.";color:var(--muted)}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .hidden{display:none}
+  .dcard{background:var(--bg);border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
+  .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:20px}
+  .dcard p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.4}
+  .lbl{font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  .seg{display:grid;gap:6px}
+  .seg button{padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:7px}
+  .seg button img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+  .seg button small{font-weight:500;opacity:.8}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stack{display:grid;gap:8px;margin-top:16px}
+  .res{width:100%;border-collapse:collapse;margin-top:8px;font-size:15px}
+  .res td{padding:6px 4px;border-bottom:1px solid var(--line)}
+  .res td:last-child{text-align:right;font-weight:700}
+  .cat{width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #ead39f,0 2px 8px rgba(0,0,0,.25)}
+  .cat.big{width:120px;height:120px;display:block;margin:4px auto 10px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .quote{text-align:center;font-size:16px;color:var(--ink)!important}
+  .promo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+  .promo button{font-size:44px;padding:6px 0;border-radius:10px;border:1px solid var(--line);background:var(--light);line-height:1.1;font-family:"Segoe UI Symbol","Apple Symbols","DejaVu Sans",serif}
+  textarea{width:100%;height:110px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="iconbtn" href="./">← Games</a>
+    <h1 id="title">Chess</h1>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
+  <div class="player" id="oppRow"></div>
+  <div id="boardWrap"><div id="dm"></div><div id="board"></div></div>
+  <div class="player" id="meRow"></div>
+  <div id="msg"></div>
+  <div id="controls">
+    <button class="switch" id="movesSw"><span>Show moves</span><span class="tg"></span></button>
+    <button class="btn" id="hintBtn" hidden>💡 Hint</button>
+    <button class="btn" id="resignBtn">Resign</button>
+  </div>
+  <div id="history"></div>
+</div>
+<div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
+
+<script src="cats.js"></script>
+<script src="chess-engine.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const rnd=n=>Math.floor(Math.random()*n);
+const E=ChessCore();
+const {WHITE,BLACK,P,N,B,R,Q,K}=E;
+const LEVELS=["Easy","Medium","Hard","Expert"], CAT_FOR=["Glorg","Sushi","Squeex","Mojito"];
+const GLYPH=["","♟","♞","♝","♜","♛","♚"].map(g=>g?g+"︎":"");
+const SAVE_KEY="chess-save-v1", STATS_KEY="chess-stats-v1", MOVES_KEY="chess-showmoves", HINTS_KEY="chess-hints", TALK_KEY="cats-talk";
+const getPref=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v==="1"; }catch(e){ return d; } };
+const setPref=(k,v)=>{ try{ localStorage.setItem(k,v?"1":"0"); }catch(e){} };
+const talkOn=()=>{ try{ return localStorage.getItem(TALK_KEY)!=="off"; }catch(e){ return true; } };
+const setTalk=on=>{ try{ localStorage.setItem(TALK_KEY,on?"on":"off"); }catch(e){} };
+
+let S=null;                 // {level,you,moves:[],sans:[],over,result,reason,endCat,endLine}
+let sel=-1, legalNow=[], thinking=false, hintMove=0, reqId=0, positions=[];
+let showMoves=getPref(MOVES_KEY,true), hintsOn=getPref(HINTS_KEY,false);
+function readLocal(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function writeLocal(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+const save=()=>{ if (S) writeLocal(SAVE_KEY,S); };
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+// ---------- Thinking happens in a background worker so the screen never freezes ----------
+let worker=null;
+try{ worker=new Worker("chess-engine.js"); }catch(e){ worker=null; }
+const pending={};
+if (worker) worker.onmessage=e=>{ const cb=pending[e.data.id]; delete pending[e.data.id]; if(cb) cb(e.data.m); };
+function think(level,cb){
+  const id=++reqId;
+  if (worker){ pending[id]=cb; worker.postMessage({id,moves:S.moves,level}); }
+  else setTimeout(()=>{ const W=ChessCore(); W.loadFen(W.START); const reps=[]; for(const m of S.moves){ reps.push(W.hash); W.make(m); } W.setReps(reps); cb(W.think(level)); },30);
+}
+
+// ---------- Game ----------
+function newGame(level,youPref){
+  const you= youPref==="r" ? (Math.random()<.5?WHITE:BLACK) : youPref==="b" ? BLACK : WHITE;
+  S={level,you,moves:[],sans:[],over:false};
+  E.loadFen(E.START); positions=[E.hash]; sel=-1; hintMove=0;
+  closeDialog(); save(); render();
+  dm("chessHello",0.7);
+  turn();
+}
+function replay(){ E.loadFen(E.START); positions=[E.hash]; for(const m of S.moves){ E.make(m); positions.push(E.hash); } }
+const catName=()=>CAT_FOR[S.level];
+const myTurn=()=>S && !S.over && E.side===S.you && !thinking;
+function turn(){
+  legalNow=E.legal(); render();
+  if (checkEnd()) return;
+  if (E.side===S.you){ setMsg(E.inCheck(E.side)?"Check! Your move.":"Your move."); return; }
+  thinking=true; render(); setMsg(`${catName()} is thinking…`);
+  const t0=Date.now(), g=S, ply=S.moves.length;
+  think(S.level,m=>{
+    const wait=Math.max(0,550-(Date.now()-t0));
+    setTimeout(()=>{ if (S!==g||S.over||S.moves.length!==ply) return; thinking=false; if (m) doMove(m,false); },wait);
+  });
+}
+function doMove(m,byYou){
+  const san=E.san(m,legalNow), from=E.from(m), to=E.to(m);
+  const captured = E.flag(m)&1 ? P : (E.piece(to)&7);
+  E.make(m); S.moves.push(m); S.sans.push(san); positions.push(E.hash);
+  sel=-1; hintMove=0;
+  save(); render(); slide(from,to);
+  // table talk
+  const check=E.inCheck(E.side);
+  if (byYou){ if (captured>=R) dm("youTake",0.85); else if (captured) dm("youTake",0.25); else if (check) dm("youCheck",0.45); }
+  else { if (captured>=R) dm("cpuTake",0.85); else if (captured) dm("cpuTake",0.3); else if (check) dm("cpuCheck",0.5); }
+  setTimeout(turn, byYou?60:120);
+}
+function checkEnd(){
+  let result=null, reason="";
+  const rep=positions.filter(h=>h===E.hash).length;
+  if (!legalNow.length){ if (E.inCheck(E.side)){ result= E.side===S.you?"loss":"win"; reason="Checkmate"; } else { result="draw"; reason="Stalemate"; } }
+  else if (rep>=3){ result="draw"; reason="Draw by repetition"; }
+  else if (E.half>=100){ result="draw"; reason="Draw by the 50-move rule"; }
+  else if (E.insufficient()){ result="draw"; reason="Draw: not enough pieces to checkmate"; }
+  if (!result) return false;
+  endGame(result,reason); return true;
+}
+function endGame(result,reason){
+  S.over=true; S.result=result; S.reason=reason;
+  S.endCat=catName(); S.endLine=GameCats.line(result==="win"?"win":result==="loss"?"lose":"draw",S.endCat);
+  S.stat=recordResult(result);
+  save(); render(); setMsg(reason+".");
+  setTimeout(showEnd,700);
+}
+
+// ---------- Board rendering ----------
+const flip=()=>S && S.you===BLACK;
+function sqAt(i){ const row=Math.floor(i/8), col=i%8; const rank=flip()?row:7-row, file=flip()?7-col:col; return rank*16+file; }
+function buildBoard(){
+  const b=$("board"); b.innerHTML="";
+  for(let i=0;i<64;i++){ const d=document.createElement("div"); d.className="sq"; b.appendChild(d); }
+}
+function render(){
+  if (!S) return;
+  $("title").textContent=`Chess · ${LEVELS[S.level]}`;
+  const lastM=S.moves.length?S.moves[S.moves.length-1]:0;
+  const targets=new Set(sel>=0&&showMoves ? legalNow.filter(m=>E.from(m)===sel).map(m=>E.to(m)) : []);
+  const chkSq= E.inCheck(E.side) ? E.kingSq(E.side) : -1;
+  const cells=$("board").children;
+  for(let i=0;i<64;i++){
+    const sq=sqAt(i), el=cells[i]; el.dataset.sq=sq;
+    const light=((sq>>4)+(sq&7))%2===1;
+    let cls="sq "+(light?"l":"d");
+    if (lastM && (E.from(lastM)===sq||E.to(lastM)===sq)) cls+=" last";
+    if (sq===sel) cls+=" sel";
+    if (hintMove && (E.from(hintMove)===sq||E.to(hintMove)===sq)) cls+=" hint";
+    if (sq===chkSq) cls+=" check";
+    el.className=cls;
+    const pc=E.piece(sq);
+    let h="";
+    if (i%8===0) h+=`<span class="co r">${(sq>>4)+1}</span>`;
+    if (i>=56) h+=`<span class="co f">${"abcdefgh"[sq&7]}</span>`;
+    if (pc) h+=`<span class="pc ${(pc&24)===WHITE?"w":"b"}">${GLYPH[pc&7]}</span>`;
+    if (targets.has(sq)) h+= pc||(E.flag(legalNow.find(m=>E.from(m)===sel&&E.to(m)===sq))&1) ? `<span class="ring"></span>` : `<span class="dot"></span>`;
+    el.innerHTML=h;
+  }
+  // players + captured pieces
+  const count={8:[0,0,0,0,0,0,0],16:[0,0,0,0,0,0,0]};
+  for(let s=0;s<128;s++){ if(s&0x88){ s+=7; continue; } const pc=E.piece(s); if(pc) count[pc&24][pc&7]++; }
+  const full=[0,8,2,2,2,1,1], val=[0,1,3,3,5,9,0];
+  const lost=c=>[5,4,3,2,1].map(t=>GLYPH[t].repeat(Math.max(0,full[t]-count[c][t]))).join("");
+  const mat=c=>[1,2,3,4,5].reduce((s,t)=>s+val[t]*count[c][t],0);
+  const opp=S.you^24, adv=mat(S.you)-mat(opp);
+  const youTurn=!S.over&&E.side===S.you, cat=catName();
+  $("oppRow").className="player"+(!S.over&&!youTurn?" turn":"");
+  $("oppRow").innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><div class="nm">${cat}</div><div class="lv">${LEVELS[S.level]} · ${opp===WHITE?"White":"Black"}</div></div>
+    <div class="caps">${lost(S.you)}${adv<0?`<span class="adv">+${-adv}</span>`:""}</div>`;
+  $("meRow").className="player"+(youTurn?" turn":"");
+  $("meRow").innerHTML=`<div class="you">${S.you===WHITE?"♔︎":"♚︎"}</div><div><div class="nm">You</div><div class="lv">${S.you===WHITE?"White":"Black"}</div></div>
+    <div class="caps">${lost(opp)}${adv>0?`<span class="adv">+${adv}</span>`:""}</div>`;
+  // history
+  let hh=""; for(let i=0;i<S.sans.length;i+=2){ hh+=`<span class="n">${i/2+1}.</span><span class="mv${i===S.sans.length-1?" cur":""}">${S.sans[i]}</span>${S.sans[i+1]?`<span class="mv${i+1===S.sans.length-1?" cur":""}">${S.sans[i+1]}</span>`:""} `; }
+  const H=$("history"); H.innerHTML=hh; H.scrollTop=H.scrollHeight;
+  // controls
+  $("movesSw").classList.toggle("on",showMoves);
+  $("hintBtn").hidden=!hintsOn; $("hintBtn").disabled=!myTurn();
+  $("resignBtn").disabled=S.over;
+}
+function slide(from,to){
+  const cells=$("board").children; let fi=-1, ti=-1;
+  for(let i=0;i<64;i++){ const s=+cells[i].dataset.sq; if(s===from) fi=i; if(s===to) ti=i; }
+  if (fi<0||ti<0) return;
+  const pc=cells[ti].querySelector(".pc"); if(!pc) return;
+  const a=cells[fi].getBoundingClientRect(), b=cells[ti].getBoundingClientRect();
+  pc.style.transition="none"; pc.style.transform=`translate(${a.left-b.left}px,${a.top-b.top}px)`; pc.style.zIndex="3";
+  pc.getBoundingClientRect(); pc.style.transition=""; pc.style.transform="";
+  setTimeout(()=>{ pc.style.zIndex=""; },300);
+}
+function setMsg(t){ $("msg").textContent=t; }
+
+// ---------- Your moves: tap or drag ----------
+function tryMove(from,to){
+  const opts=legalNow.filter(m=>E.from(m)===from&&E.to(m)===to);
+  if (!opts.length) return false;
+  if (opts.length>1){ // promotion
+    const c=S.you===WHITE?"w":"b";
+    dialog(`<h2>Promote to…</h2><div class="promo">${[Q,R,B,N].map(t=>`<button data-t="${t}"><span class="pc ${c}" style="font-size:44px">${GLYPH[t]}</span></button>`).join("")}</div>`);
+    $("dlg").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ closeDialog(); doMove(opts.find(m=>E.promo(m)===+b.dataset.t),true); });
+    return true;
+  }
+  doMove(opts[0],true); return true;
+}
+function tapSquare(sq){
+  if (!myTurn()) { if (S&&!S.over&&thinking) setMsg(`Hang on, ${catName()} is thinking…`); return; }
+  const pc=E.piece(sq);
+  if (sel>=0 && sq!==sel && tryMove(sel,sq)) return;
+  if (pc && (pc&24)===S.you){ sel = sel===sq ? -1 : sq; }
+  else { if (sel>=0 && pc!==undefined) setMsg(showMoves?"That piece can't move there.":"That move isn't allowed."); sel=-1; }
+  render();
+}
+let drag=null, ghost=null, suppress=false;
+$("board").addEventListener("pointerdown",e=>{
+  const cell=e.target.closest(".sq"); if(!cell||!myTurn()) return;
+  const sq=+cell.dataset.sq, pc=E.piece(sq);
+  if (pc && (pc&24)===S.you) drag={sq,x:e.clientX,y:e.clientY,id:e.pointerId,active:false,pc};
+});
+window.addEventListener("pointermove",e=>{
+  if(!drag||e.pointerId!==drag.id) return;
+  if(!drag.active){ if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<7) return;
+    drag.active=true; sel=drag.sq; render();
+    ghost=document.createElement("div"); ghost.id="ghost"; ghost.className="pc "+((drag.pc&24)===WHITE?"w":"b");
+    ghost.textContent=GLYPH[drag.pc&7]; ghost.style.fontSize=($("board").clientWidth/8*1.05)+"px"; document.body.appendChild(ghost);
+    const from=[...$("board").children].find(c=>+c.dataset.sq===drag.sq); if(from&&from.querySelector(".pc")) from.querySelector(".pc").classList.add("dragging"); }
+  e.preventDefault();
+  ghost.style.left=e.clientX+"px"; ghost.style.top=e.clientY+"px";
+  document.querySelectorAll(".sq.drop").forEach(c=>c.classList.remove("drop"));
+  const over=document.elementFromPoint(e.clientX,e.clientY); const c=over&&over.closest&&over.closest(".sq"); if(c) c.classList.add("drop");
+},{passive:false});
+window.addEventListener("pointerup",e=>{
+  if(!drag||e.pointerId!==drag.id) return;
+  const d=drag; drag=null;
+  if(!d.active) return;
+  suppress=true; setTimeout(()=>suppress=false,60);
+  if(ghost){ ghost.remove(); ghost=null; }
+  document.querySelectorAll(".sq.drop").forEach(c=>c.classList.remove("drop"));
+  const over=document.elementFromPoint(e.clientX,e.clientY); const c=over&&over.closest&&over.closest(".sq");
+  if (c && +c.dataset.sq!==d.sq && tryMove(d.sq,+c.dataset.sq)) return;
+  render();
+});
+window.addEventListener("pointercancel",()=>{ if(ghost){ghost.remove();ghost=null;} drag=null; render(); });
+$("board").addEventListener("click",e=>{ if(suppress) return; const c=e.target.closest(".sq"); if(c) tapSquare(+c.dataset.sq); });
+
+// ---------- Controls ----------
+$("movesSw").onclick=()=>{ showMoves=!showMoves; setPref(MOVES_KEY,showMoves); render(); };
+$("hintBtn").onclick=()=>{
+  if (!myTurn()) return;
+  $("hintBtn").disabled=true; setMsg("Thinking of a good move…"); thinking=true;
+  const g=S, ply=S.moves.length;
+  think(4,m=>{ if(S!==g||S.over||S.moves.length!==ply) return; thinking=false; hintMove=m; render(); setMsg(m?`Hint: ${E.san(m,legalNow)}`:""); });
+};
+$("resignBtn").onclick=()=>{
+  if (!S||S.over) return;
+  dialog(`<h2>Resign?</h2><p>${catName()} will be insufferable about this.</p><div class="stack"><button class="btn primary" id="rY">Resign</button><button class="btn" id="rN">Keep playing</button></div>`);
+  $("rY").onclick=()=>{ closeDialog(); thinking=false; endGame("loss","You resigned"); };
+  $("rN").onclick=closeDialog;
+};
+
+// ---------- Cat table talk ----------
+let dmTimer=null;
+function dm(kind,chance){
+  if (!S || !talkOn() || Math.random()>chance) return;
+  const cat=catName(), el=$("dm");
+  el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${GameCats.line(kind,cat)}</div>`;
+  el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),4200);
+}
+
+// ---------- Dialogs ----------
+function dialog(html){ $("dlg").innerHTML=html; $("dialog").classList.remove("hidden"); }
+function closeDialog(){ $("dialog").classList.add("hidden"); }
+function showEnd(){
+  const r=S.result, title= r==="win"?"You win! 🎉": r==="loss"?`${S.endCat} wins`:"Draw";
+  dialog(`<img class="cat big" src="${GameCats.img(S.endCat)}" alt=""><h2 style="text-align:center">${title}</h2>
+    <p class="quote">${S.endLine}</p><p style="text-align:center">${S.reason} · ${Math.ceil(S.moves.length/2)} moves</p>${S.stat?`<p style="text-align:center">${S.stat}</p>`:""}
+    <div class="stack"><button class="btn primary" id="eAgain">Rematch</button><button class="btn" id="eNew">New game</button>
+    <button class="btn" id="eStats">📊 Stats</button><button class="btn" id="eView">View board</button></div>`);
+  $("eAgain").onclick=()=>newGame(S.level, S.you===WHITE?"w":"b");
+  $("eNew").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  $("eStats").onclick=()=>{ statsBack=showEnd; showStats(); };
+  $("eView").onclick=closeDialog;
+}
+function showStart(){
+  const saved=readLocal(SAVE_KEY);
+  let level=saved?saved.level:1, col="w";
+  const draw=()=>{
+    dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Chess</h1><p style="margin:0">Each cat plays at their own level.</p></div></div>
+      ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue vs ${CAT_FOR[saved.level]} (move ${Math.floor(saved.moves.length/2)+1})</button></div>`:""}
+      <div class="lbl">Opponent</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}"><img src="${GameCats.img(CAT_FOR[i])}" alt="">${CAT_FOR[i]} <small>${l}</small></button>`).join("")}</div>
+      <div class="lbl">Play as</div>
+      <div class="seg" style="grid-template-columns:repeat(3,1fr)">${[["w","White"],["r","Random"],["b","Black"]].map(([k,l])=>`<button data-c="${k}" class="${k===col?"on":""}">${l}</button>`).join("")}</div>
+      <div class="lbl">Cat smack talk</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)"><button data-talk="1" class="${talkOn()?"on":""}">On 😼</button><button data-talk="0" class="${talkOn()?"":"on"}">Off 😶</button></div>
+      <div class="stack"><button class="btn ${saved&&!saved.over?"":"primary"}" id="sNew">New game</button><button class="btn" id="sStats">📊 Stats</button><a class="btn" href="./">← All games</a></div>`);
+    $("dlg").querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{level=+b.dataset.lv;draw();});
+    $("dlg").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{col=b.dataset.c;draw();});
+    $("dlg").querySelectorAll("[data-talk]").forEach(b=>b.onclick=()=>{setTalk(b.dataset.talk==="1");draw();});
+    $("sNew").onclick=()=>newGame(level,col);
+    $("sStats").onclick=()=>{ statsBack=draw; showStats(); };
+    if ($("sCont")) $("sCont").onclick=()=>{ closeDialog(); resume(saved); };
+  };
+  draw();
+}
+function resume(saved){
+  S=saved; replay(); sel=-1; hintMove=0; thinking=false;
+  if (S.over){ legalNow=E.legal(); render(); setMsg(S.reason+"."); return; }
+  turn();
+}
+function showMenu(){
+  dialog(`<h2>Menu</h2><div class="stack">
+    <button class="btn primary" id="mBack">Back to game</button>
+    <button class="btn" id="mHints">Hints: ${hintsOn?"On 💡":"Off"}</button>
+    <button class="btn" id="mTalk">Cat smack talk: ${talkOn()?"On 😼":"Off 😶"}</button>
+    <button class="btn" id="mNew">New game</button>
+    <button class="btn" id="mStats">📊 Stats</button>
+    <button class="btn" id="mTheme">${document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mRules">How to play</button>
+    <a class="btn" href="./">← All games</a></div>`);
+  $("mBack").onclick=closeDialog;
+  $("mHints").onclick=()=>{ hintsOn=!hintsOn; setPref(HINTS_KEY,hintsOn); render(); showMenu(); };
+  $("mTalk").onclick=()=>{ setTalk(!talkOn()); if(!talkOn()) $("dm").classList.remove("show"); showMenu(); };
+  $("mNew").onclick=()=>{
+    if (!S||S.over){ showStart(); return; }
+    dialog(`<h2>Start a new game?</h2><p>This game will be lost (it won't count as a loss).</p><div class="stack"><button class="btn primary" id="yN">Yes, new game</button><button class="btn" id="nN">Cancel</button></div>`);
+    $("yN").onclick=()=>{ writeLocal(SAVE_KEY,null); S=null; thinking=false; showStart(); }; $("nN").onclick=showMenu;
+  };
+  $("mStats").onclick=()=>{ statsBack=showMenu; showStats(); };
+  $("mTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; try{localStorage.setItem("wordrack-theme",t);}catch(e){} showMenu(); };
+  $("mRules").onclick=()=>{
+    dialog(`<h2>How to play</h2>
+      <p>Tap a piece, then tap where it should go, or drag it there.</p>
+      <p><b>Show moves</b> (below the board) marks every square the picked piece can reach: dots for empty squares, rings for captures.</p>
+      <p><b>Hints</b> (turn on here in the menu) adds a 💡 button that highlights a good move.</p>
+      <p>All the usual rules apply: castling, en passant, and promotion (you choose the piece). Games end in checkmate, stalemate, threefold repetition, the 50-move rule, or when nobody has enough pieces left to checkmate.</p>
+      <p>Opponents: Glorg (Easy), Sushi (Medium), Squeex (Hard) and Mojito (Expert).</p>
+      <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
+    $("rOk").onclick=showMenu;
+  };
+}
+$("menuBtn").onclick=()=>{ if (S) showMenu(); else showStart(); };
+
+// ---------- Stats ----------
+let statsBack=null;
+function blankStats(){ return {levels:{},streak:0,bestStreak:0}; }
+function loadStats(){ return Object.assign(blankStats(), readLocal(STATS_KEY)||{}); }
+function recordResult(result){
+  const st=loadStats(), L=st.levels[S.level]||(st.levels[S.level]={w:0,l:0,d:0,fastest:null});
+  if (result==="win"){ L.w++; st.streak++; st.bestStreak=Math.max(st.bestStreak,st.streak); const mv=Math.ceil(S.moves.length/2); if(L.fastest==null||mv<L.fastest) L.fastest=mv; }
+  else if (result==="loss"){ L.l++; st.streak=0; } else L.d++;
+  writeLocal(STATS_KEY,st);
+  return result==="win" ? `Win streak: ${st.streak}` : `vs ${CAT_FOR[S.level]}: ${L.w}–${L.l}${L.d?"–"+L.d:""}`;
+}
+function showStats(){
+  const st=loadStats();
+  const rows=LEVELS.map((l,i)=>{ const L=st.levels[i]; if(!L) return ""; return `<tr><td><b>${CAT_FOR[i]}</b> <span style="color:var(--muted);font-size:13px">${l}</span><br><span style="font-size:12px;color:var(--muted)">W–L–D · fastest win ${L.fastest?L.fastest+" moves":"–"}</span></td><td>${L.w}–${L.l}–${L.d}</td></tr>`; }).join("");
+  dialog(`<h2>Chess stats</h2>
+    <table class="res"><tr><td>Current win streak</td><td>${st.streak}</td></tr><tr><td>Best win streak</td><td>${st.bestStreak}</td></tr></table>
+    ${rows?`<div class="lbl">Record vs each cat</div><table class="res">${rows}</table>`:`<p>Finish a game to start your record.</p>`}
+    <div class="stack"><button class="btn primary" id="stClose">Close</button><button class="btn" id="stExp">Export stats (backup)</button><button class="btn" id="stImp">Import stats</button><button class="btn" id="stReset">Reset stats</button></div>`);
+  $("stClose").onclick=()=>{ statsBack?statsBack():closeDialog(); };
+  $("stExp").onclick=()=>{
+    const code="CH1:"+btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    dialog(`<h2>Export stats</h2><p>Copy this code somewhere safe. Paste it into Import to restore.</p><textarea id="eC" readonly>${code}</textarea><p id="eM"></p>
+      <div class="stack"><button class="btn primary" id="eCp">Copy code</button><button class="btn" id="eB">Back</button></div>`);
+    $("eCp").onclick=()=>{ const ta=$("eC"); ta.focus(); ta.select(); const ok=()=>$("eM").textContent="Copied ✓", bad=()=>$("eM").textContent="Long-press the selected code and choose Copy.";
+      try{ navigator.clipboard.writeText(code).then(ok,()=>{ try{ document.execCommand("copy")?ok():bad(); }catch(e){bad();} }); }catch(e){ bad(); } };
+    $("eB").onclick=showStats;
+  };
+  $("stImp").onclick=()=>{
+    dialog(`<h2>Import stats</h2><p>Paste a Chess code from Export. This replaces your current Chess stats.</p><textarea id="iC"></textarea><p id="iM"></p>
+      <div class="stack"><button class="btn primary" id="iGo">Import</button><button class="btn" id="iB">Back</button></div>`);
+    $("iGo").onclick=()=>{ try{ const raw=$("iC").value.trim(); if(!raw.startsWith("CH1:")) throw 0; const o=JSON.parse(decodeURIComponent(escape(atob(raw.slice(4))))); if(!o||typeof o.levels!=="object") throw 0; writeLocal(STATS_KEY,Object.assign(blankStats(),o)); showStats(); }catch(e){ $("iM").textContent="That code doesn't look right."; } };
+    $("iB").onclick=showStats;
+  };
+  $("stReset").onclick=()=>{
+    dialog(`<h2>Reset Chess stats?</h2><p>This can't be undone.</p><div class="stack"><button class="btn primary" id="rsY">Reset</button><button class="btn" id="rsN">Cancel</button></div>`);
+    $("rsY").onclick=()=>{ writeLocal(STATS_KEY,blankStats()); showStats(); }; $("rsN").onclick=showStats;
+  };
+}
+
+// ---------- Boot ----------
+buildBoard();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+(function(){ const saved=readLocal(SAVE_KEY); if (saved && !saved.over) resume(saved); else showStart(); })();
+</script>
+</body>
+</html>
