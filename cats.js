@@ -74,6 +74,7 @@
       "{n} is satisfied with a draw. For now.",
       "{n} says you're evenly matched, which is a compliment to you.",
     ],
+    diceHello: ["Feeling lucky? You shouldn't.","I've been blowing on these dice all morning.","Prepare to be out-rolled.","My paws are very lucky. Ask anyone."],
     // Chess table talk
     chessHello: ["Prepare to be outplayed.","I've been practicing on the scratching post.","Let's make this quick, I have a nap scheduled.","Good luck. You'll need it.","I hope you like losing pieces."],
     cpuTake: ["Mine now.","Thank you for the snack.","I'll be taking that.","Oops, did you need that?","Into the toy box it goes."],

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glorg's Games">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1916">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Dice Duel</title>
+<script>
+  (function(){ let t=null; try{ t=localStorage.getItem("wordrack-theme"); }catch(e){}
+    if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+    document.documentElement.dataset.theme=t; })();
+</script>
+<style>
+  :root{--bg:#f4efe6;--ink:#2b2621;--muted:#7a6f63;--line:#d6c9b1;--panel:#fff8ec;--accent:#2f6f5e;--felt:#2f6b55;--die:#fffdf8;--pip:#2b2621;--held:#e6b800;--pot:#2f6fae;--row:#fbf5ea}
+  :root[data-theme=dark]{--bg:#1b1916;--ink:#efe7da;--muted:#a39886;--line:#3e3933;--panel:#26231f;--accent:#3d8a75;--felt:#1f4a3b;--die:#f4efe5;--pot:#8fbdf0;--row:#221f1b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{max-width:540px;margin:0 auto;padding:calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .top h1{flex:1;margin:0;font-size:20px;text-align:center}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:8px 11px;text-decoration:none}
+  #camp{font-size:12px;color:var(--muted);text-align:center;margin:-2px 0 6px;min-height:16px}
+  #sheet{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  #sheet th{font-size:12px;color:var(--muted);font-weight:600;padding:5px 6px;background:var(--panel);text-align:center}
+  #sheet th img{width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:-6px;margin-right:4px}
+  #sheet th.turn{color:var(--ink);box-shadow:inset 0 -3px 0 var(--held)}
+  #sheet td{padding:4px 8px;border-top:1px solid var(--line);height:30px}
+  #sheet td:nth-child(n+2){text-align:center;width:26%;font-weight:700;font-variant-numeric:tabular-nums}
+  #sheet tr:nth-child(odd) td{background:var(--row)}
+  #sheet td.pot{color:var(--pot);font-weight:600;cursor:pointer;background:rgba(47,111,174,.10)!important}
+  #sheet td.pot.zero{color:var(--muted)}
+  #sheet td.pot.forced{box-shadow:inset 0 0 0 2px var(--pot)}
+  #sheet td.just{animation:flash 1.3s ease-out}
+  @keyframes flash{0%{background:#ffe27a}100%{}}
+  #sheet tr.sub td{font-size:12px;color:var(--muted);font-weight:600;background:var(--panel)!important;height:24px}
+  #sheet tr.total td{font-size:15px;background:var(--panel)!important;height:32px}
+  #table{margin-top:10px;background:radial-gradient(ellipse at center,var(--felt) 55%,#24574a);border-radius:16px;padding:12px 8px 10px;position:relative}
+  #dice{display:flex;justify-content:center;gap:min(2.6vw,12px)}
+  .die{width:min(15vw,66px);height:min(15vw,66px);background:var(--die);border-radius:18%;box-shadow:0 3px 0 rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:calc(min(15vw,66px) * .13);position:relative;transition:transform .15s}
+  .die span{width:72%;height:72%;margin:auto;border-radius:50%;background:var(--pip);visibility:hidden}
+  .die.blank{opacity:.35}
+  .die.held{transform:translateY(-6px);box-shadow:0 0 0 3px var(--held),0 6px 12px rgba(0,0,0,.35)}
+  .die.held::after{content:"HOLD";position:absolute;bottom:-19px;left:0;right:0;text-align:center;font-size:10px;font-weight:800;color:var(--held);letter-spacing:.5px}
+  .die.roll{animation:shake .45s ease-out}
+  @keyframes shake{0%{transform:rotate(0)}25%{transform:rotate(-14deg) translateY(-6px)}55%{transform:rotate(10deg)}80%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+  #status{color:#eaf3ee;text-align:center;font-size:14px;margin-top:22px;min-height:20px}
+  #rollBtn{width:100%;margin-top:10px;padding:13px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:17px;font-weight:700}
+  #rollBtn:disabled{opacity:.45}
+  #dm{position:absolute;left:8px;right:8px;top:-8px;transform:translateY(-100%);z-index:5;display:flex;align-items:center;gap:8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:7px 10px;box-shadow:0 4px 14px rgba(0,0,0,.22);font-size:14px;pointer-events:none;opacity:0;transition:opacity .25s}
+  #dm.show{opacity:1}
+  #dm img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+  .hidden{display:none}
+  .dcard{background:var(--bg);border-radius:16px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
+  .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:20px}
+  .dcard p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.4}
+  .lbl{font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  .seg{display:grid;gap:6px}
+  .seg button{padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:14px;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:7px}
+  .seg button img{width:26px;height:26px;border-radius:50%;object-fit:cover}
+  .seg button small{font-weight:500;opacity:.8}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stack{display:grid;gap:8px;margin-top:16px}
+  .btn{padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink);text-align:center;text-decoration:none;display:block}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .res{width:100%;border-collapse:collapse;margin-top:8px;font-size:15px}
+  .res td{padding:6px 4px;border-bottom:1px solid var(--line)}
+  .res td:last-child{text-align:right;font-weight:700}
+  .cat{width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #ead39f,0 2px 8px rgba(0,0,0,.25)}
+  .cat.big{width:120px;height:120px;display:block;margin:4px auto 10px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .quote{text-align:center;font-size:16px;color:var(--ink)!important}
+  .ladder{display:flex;justify-content:space-between;gap:6px;margin-top:8px}
+  .ladder div{flex:1;text-align:center;font-size:11px;color:var(--muted);font-weight:600}
+  .ladder img{width:48px;height:48px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 4px;filter:grayscale(.85);opacity:.6;box-shadow:0 0 0 2px var(--line)}
+  .ladder .beat img{filter:none;opacity:1;box-shadow:0 0 0 3px #3d8a75}
+  .ladder .next img{filter:none;opacity:1;box-shadow:0 0 0 3px #e6b800}
+  textarea{width:100%;height:110px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="iconbtn" href="./">← Games</a>
+    <h1 id="title">Dice Duel</h1>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
+  <div id="camp"></div>
+  <table id="sheet"></table>
+  <div id="table">
+    <div id="dm"></div>
+    <div id="dice"></div>
+    <div id="status"></div>
+  </div>
+  <button id="rollBtn">Roll</button>
+</div>
+<div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
+
+<script src="cats.js"></script>
+<script src="dice-ai.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const D=window.DiceRules, rnd=n=>Math.floor(Math.random()*n);
+const LEVELS=["Easy","Medium","Hard","Expert"], CAT_FOR=["Glorg","Sushi","Squeex","Mojito"];
+const SAVE_KEY="dice-save-v1", STATS_KEY="dice-stats-v1", SPEED_KEY="dice-speed", TALK_KEY="cats-talk";
+const SPEEDS={slow:{roll:1300,hold:1100,score:1500,after:1100},normal:{roll:850,hold:700,score:1000,after:700},fast:{roll:420,hold:320,score:500,after:300}};
+let speed=(()=>{ try{ return localStorage.getItem(SPEED_KEY)||"normal"; }catch(e){ return "normal"; } })();
+const T_=()=>SPEEDS[speed]||SPEEDS.normal;
+const talkOn=()=>{ try{ return localStorage.getItem(TALK_KEY)!=="off"; }catch(e){ return true; } };
+const setTalk=on=>{ try{ localStorage.setItem(TALK_KEY,on?"on":"off"); }catch(e){} };
+function readLocal(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function writeLocal(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+// G: {level, campaign:bool, cards:[you,cat], bonus:[0,0], turn:0|1, round:1..13, dice, held, rollsLeft, over, ...}
+let G=null, busy=false, just=null;
+const save=()=>{ if (G) writeLocal(SAVE_KEY,G); };
+const catName=()=>CAT_FOR[G.level];
+const freshTurn=()=>{ G.dice=[0,0,0,0,0]; G.held=[false,false,false,false,false]; G.rollsLeft=3; };
+
+function newGame(level,campaign){
+  G={level,campaign,cards:[{},{}],bonus:[0,0],turn:0,round:1,over:false};
+  freshTurn(); closeDialog(); save(); render();
+  dm("diceHello",0.6);
+  setStatus("Your turn. Tap Roll.");
+}
+const roundsLeft=p=>13-Object.keys(G.cards[p]).length;
+
+// ---------- Rolling ----------
+function rollDice(){
+  const idx=[]; G.dice=G.dice.map((v,i)=>{ if (G.held[i]&&v) return v; idx.push(i); return 1+rnd(6); });
+  G.rollsLeft--; save(); render();
+  idx.forEach(i=>{ const el=$("dice").children[i]; el.classList.remove("roll"); void el.offsetWidth; el.classList.add("roll"); });
+}
+$("rollBtn").onclick=()=>{
+  if (!G||G.over||G.turn!==0||busy||G.rollsLeft<=0) return;
+  rollDice();
+  setStatus(G.rollsLeft ? `Tap dice to hold them, roll again (${G.rollsLeft} left), or pick a score.` : "Pick a box to score.");
+  if (D.isFive(G.dice)) dm("youBingo",0.9);
+};
+$("dice").addEventListener("click",e=>{
+  const el=e.target.closest(".die"); if (!el||!G||G.over||G.turn!==0||busy||G.rollsLeft===3||G.rollsLeft===0) return;
+  const i=+el.dataset.i; G.held[i]=!G.held[i]; save(); render();
+});
+$("sheet").addEventListener("click",e=>{
+  const td=e.target.closest("td.pot"); if (!td||G.turn!==0||busy) return;
+  scoreBox(0,td.dataset.box);
+});
+function scoreBox(p,box){
+  const card=G.cards[p], s=D.score(box,G.dice,card), fb=D.fiveBonus(G.dice,card);
+  if (fb) G.bonus[p]++;
+  card[box]=s; just={p,box};
+  const who= p===0?"You":catName();
+  setStatus(`${who} scored ${s} in ${D.NAMES[box]}${fb?" + 100 bonus!":""}.`);
+  // table talk
+  const name=catName();
+  if (p===1){ if (box==="5k"&&s===50 || fb) dm("cpuBingo",1); else if (s>=30) dm("cpuBig",0.35); else if (s===0) dm("cpuSmall",0.4); }
+  else { if (box==="5k"&&s===50 || fb) dm("youBingo",1); else if (s===0 && box!=="1") dm("youSmall",0.55); else if (s>=40) dm("youBig",0.45); }
+  freshTurn();
+  if (p===1) G.round++;
+  G.turn=1-p;
+  save(); render();
+  if (Object.keys(G.cards[0]).length===13 && Object.keys(G.cards[1]).length===13){ G.over=true; render(); return setTimeout(endGame,T_().after); }
+  if (G.turn===1) { busy=true; render(); setTimeout(catTurn,T_().after+400); }
+  else setTimeout(()=>{ if (G.turn===0&&!G.over) setStatus(`Round ${G.round} of 13. Your turn. Tap Roll.`); }, T_().after);
+}
+
+// ---------- The cat's turn, step by step so you can watch ----------
+function catTurn(){
+  if (!G||G.over) return;
+  busy=true; const T=T_(), lv=G.level, card=G.cards[1];
+  setStatus(`${catName()} is rolling…`);
+  const step=()=>{
+    rollDice(); render();
+    setTimeout(()=>{
+      if (G.rollsLeft>0){
+        const h=D.chooseHold(lv,G.dice,G.rollsLeft,card,roundsLeft(1),G.bonus[1]);
+        if (h!==null){
+          G.held=G.dice.map((_,i)=>h.includes(i)); save(); render();
+          setStatus(h.length?`${catName()} keeps ${h.map(i=>G.dice[i]).sort().join(" ")}…`:`${catName()} rerolls everything…`);
+          return setTimeout(step,T.hold);
+        }
+      }
+      const box=D.chooseBox(lv,G.dice,card,roundsLeft(1),G.bonus[1]);
+      setTimeout(()=>{ busy=false; scoreBox(1,box); }, T.score*0.5);
+    },T.roll);
+  };
+  setTimeout(step,200);
+}
+
+// ---------- Rendering ----------
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function buildDice(){ $("dice").innerHTML=[0,1,2,3,4].map(i=>`<div class="die" data-i="${i}">${"<span></span>".repeat(9)}</div>`).join(""); }
+function setStatus(t){ $("status").textContent=t; }
+function render(){
+  if (!G) return;
+  $("title").textContent=`Dice Duel · ${LEVELS[G.level]}`;
+  $("camp").textContent= G.campaign ? `Campaign: match ${G.level+1} of 4 vs ${catName()}` : "";
+  // dice
+  [...$("dice").children].forEach((el,i)=>{
+    const v=G.dice[i]; el.classList.toggle("blank",!v); el.classList.toggle("held",!!(v&&G.held[i]));
+    [...el.children].forEach((pip,k)=>pip.style.visibility= v&&PIPS[v].includes(k)?"visible":"hidden");
+  });
+  // sheet
+  const you=G.turn===0&&!G.over, rolled=G.rollsLeft<3&&G.dice[0];
+  const allowed= you&&rolled&&!busy ? new Set(D.allowed(G.dice,G.cards[0])) : new Set();
+  const forced = allowed.size===1;
+  const cell=(p,b)=>{
+    const v=G.cards[p][b];
+    const j= just&&just.p===p&&just.box===b ? " just":"";
+    if (v!=null) return `<td class="${j}">${v}</td>`;
+    if (p===0&&allowed.has(b)){ const s=D.score(b,G.dice,G.cards[0]); return `<td class="pot${s?"":" zero"}${forced?" forced":""}" data-box="${b}">${s}</td>`; }
+    return `<td></td>`;
+  };
+  const tot=[0,1].map(p=>D.totals(G.cards[p],G.bonus[p]));
+  const row=(label,vals,cls)=>`<tr class="${cls}"><td>${label}</td><td>${vals[0]}</td><td>${vals[1]}</td></tr>`;
+  let h=`<tr><th style="text-align:left">Round ${Math.min(G.round,13)}/13</th><th class="${G.turn===0&&!G.over?"turn":""}">You</th><th class="${G.turn===1&&!G.over?"turn":""}"><img src="${GameCats.img(catName())}" alt="">${catName()}</th></tr>`;
+  for (const b of ["1","2","3","4","5","6"]) h+=`<tr><td>${D.NAMES[b]}</td>${cell(0,b)}${cell(1,b)}</tr>`;
+  h+=row(`Bonus (63+ = 35)`,tot.map(t=>t.ub?35:`${t.upper}/63`),"sub");
+  for (const b of ["3k","4k","fh","ss","ls","5k","ch"]) h+=`<tr><td>${D.NAMES[b]}</td>${cell(0,b)}${cell(1,b)}</tr>`;
+  if (G.bonus[0]||G.bonus[1]) h+=row("5 of a Kind bonus",tot.map(t=>t.fb?"+"+t.fb:"–"),"sub");
+  h+=row("<b>Total</b>",tot.map(t=>t.total),"total");
+  $("sheet").innerHTML=h;
+  just=null;
+  // button
+  const rb=$("rollBtn");
+  rb.disabled = !you || busy || G.rollsLeft<=0;
+  rb.textContent = G.over ? "Game over" : !you ? `${catName()}'s turn` : G.rollsLeft===3 ? "Roll" : G.rollsLeft>0 ? `Roll again (${G.rollsLeft} left)` : "Pick a score above";
+}
+
+// ---------- Talk ----------
+let dmTimer=null;
+function dm(kind,chance){
+  if (!G||!talkOn()||Math.random()>chance) return;
+  const cat=catName(), line=GameCats.line(kind,cat), el=$("dm");
+  el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${line}</div>`;
+  el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),Math.max(4000,2400+line.length*55));
+}
+
+// ---------- End of game + campaign ----------
+function endGame(){
+  G.over=true;
+  const a=D.totals(G.cards[0],G.bonus[0]).total, b=D.totals(G.cards[1],G.bonus[1]).total;
+  G.result= a>b?"win": a<b?"loss":"draw"; G.scores=[a,b];
+  G.endLine=GameCats.line(G.result==="win"?"win":G.result==="loss"?"lose":"draw",catName());
+  G.stat=recordResult();
+  save(); render(); setStatus(`Final: you ${a}, ${catName()} ${b}.`);
+  setTimeout(showEnd,500);
+}
+function ladderHTML(next,beatAll){
+  return `<div class="ladder">${CAT_FOR.map((c,i)=>`<div class="${beatAll||i<next?"beat":i===next?"next":""}"><img src="${GameCats.img(c)}" alt="">${c}<br>${LEVELS[i]}</div>`).join("")}</div>`;
+}
+function showEnd(){
+  const r=G.result, [a,b]=G.scores, c=catName();
+  let camp="";
+  if (G.campaign){
+    if (r==="win" && G.level===3) camp=`<p style="text-align:center;color:var(--ink)"><b>🏆 Campaign complete! You beat all four cats in a row.</b></p>${ladderHTML(4,true)}`;
+    else if (r==="win") camp=`<p style="text-align:center">Campaign: ${G.level+1} down, ${3-G.level} to go. Next up: <b>${CAT_FOR[G.level+1]}</b>.</p>${ladderHTML(G.level+1)}`;
+    else camp=`<p style="text-align:center">${r==="draw"?"A tie doesn't count.":"The campaign is over."} Back to Glorg to start again.</p>`;
+  }
+  const nextBtn = G.campaign ? (r==="win"&&G.level<3 ? `<button class="btn primary" id="eNext">Next: ${CAT_FOR[G.level+1]} →</button>` : `<button class="btn primary" id="eCamp">New campaign</button>`)
+                             : `<button class="btn primary" id="eAgain">Rematch ${c}</button>`;
+  dialog(`<img class="cat big" src="${GameCats.img(c)}" alt=""><h2 style="text-align:center">${r==="win"?"You win! 🎉":r==="loss"?`${c} wins`:"It's a tie"}</h2>
+    <p class="quote">${G.endLine}</p><p style="text-align:center">You <b>${a}</b> · ${c} <b>${b}</b></p>${G.stat?`<p style="text-align:center">${G.stat}</p>`:""}${camp}
+    <div class="stack">${nextBtn}<button class="btn" id="eMenu">Main menu</button><button class="btn" id="eStats">📊 Stats</button><button class="btn" id="eView">View scorecard</button></div>`);
+  if ($("eNext")) $("eNext").onclick=()=>newGame(G.level+1,true);
+  if ($("eCamp")) $("eCamp").onclick=()=>newGame(0,true);
+  if ($("eAgain")) $("eAgain").onclick=()=>newGame(G.level,false);
+  $("eMenu").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  $("eStats").onclick=()=>{ statsBack=showEnd; showStats(); };
+  $("eView").onclick=closeDialog;
+}
+
+// ---------- Dialogs ----------
+function dialog(html){ $("dlg").innerHTML=html; $("dialog").classList.remove("hidden"); }
+function closeDialog(){ $("dialog").classList.add("hidden"); }
+function showStart(){
+  const saved=readLocal(SAVE_KEY), st=loadStats();
+  let level=1;
+  const draw=()=>{
+    dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Dice Duel</h1><p style="margin:0">Five dice, three rolls, 13 boxes. Beat the cat.</p></div></div>
+      ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue vs ${CAT_FOR[saved.level]} (round ${Math.min(saved.round,13)})</button></div>`:""}
+      <div class="lbl">Campaign: beat all four cats in a row</div>
+      ${ladderHTML(st.run||0)}
+      <p style="text-align:center;margin-top:8px">${st.campaigns?`🏆 Completed ${st.campaigns} time${st.campaigns>1?"s":""}`:`Best run so far: ${st.bestRun?`beat ${st.bestRun} cat${st.bestRun>1?"s":""}`:"none yet"}`}</p>
+      <div class="stack" style="margin-top:8px">${st.run>0&&st.run<4?`<button class="btn ${saved&&!saved.over?"":"primary"}" id="sCampGo">Continue campaign: ${CAT_FOR[st.run]} is next</button>`:""}
+        <button class="btn ${(saved&&!saved.over)||(st.run>0&&st.run<4)?"":"primary"}" id="sCamp">${st.run>0&&st.run<4?"Restart campaign from Glorg":"Start campaign"}</button></div>
+      <div class="lbl">Quick match</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}"><img src="${GameCats.img(CAT_FOR[i])}" alt="">${CAT_FOR[i]} <small>${l}</small></button>`).join("")}</div>
+      <div class="stack" style="margin-top:8px"><button class="btn" id="sQuick">Play ${CAT_FOR[level]}</button></div>
+      <div class="lbl">Game speed</div>
+      <div class="seg" style="grid-template-columns:repeat(3,1fr)">${["slow","normal","fast"].map(v=>`<button data-sp="${v}" class="${v===speed?"on":""}">${v[0].toUpperCase()+v.slice(1)}</button>`).join("")}</div>
+      <div class="lbl">Cat smack talk</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)"><button data-talk="1" class="${talkOn()?"on":""}">On 😼</button><button data-talk="0" class="${talkOn()?"":"on"}">Off 😶</button></div>
+      <div class="stack"><button class="btn" id="sStats">📊 Stats</button><a class="btn" href="./">← All games</a></div>`);
+    $("dlg").querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{level=+b.dataset.lv;draw();});
+    $("dlg").querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{setSpeed(b.dataset.sp);draw();});
+    $("dlg").querySelectorAll("[data-talk]").forEach(b=>b.onclick=()=>{setTalk(b.dataset.talk==="1");draw();});
+    $("sCamp").onclick=()=>{ const s2=loadStats(); s2.run=0; writeLocal(STATS_KEY,s2); newGame(0,true); };
+    if ($("sCampGo")) $("sCampGo").onclick=()=>newGame(st.run,true);
+    $("sQuick").onclick=()=>newGame(level,false);
+    $("sStats").onclick=()=>{ statsBack=draw; showStats(); };
+    if ($("sCont")) $("sCont").onclick=()=>{ closeDialog(); resume(saved); };
+  };
+  draw();
+}
+function setSpeed(v){ speed=v; try{ localStorage.setItem(SPEED_KEY,v); }catch(e){} }
+function resume(saved){
+  G=saved; busy=false; render();
+  if (G.over){ showEnd(); return; }
+  if (Object.keys(G.cards[0]).length===13 && Object.keys(G.cards[1]).length===13){ G.over=true; endGame(); return; }
+  if (G.turn===1){ freshTurn(); render(); setTimeout(catTurn,500); }
+  else setStatus(G.rollsLeft===3?`Round ${G.round} of 13. Your turn. Tap Roll.`:"Your turn.");
+}
+function showMenu(){
+  dialog(`<h2>Menu</h2><div class="stack">
+    <button class="btn primary" id="mBack">Back to game</button>
+    <button class="btn" id="mSpeed">Game speed: ${speed[0].toUpperCase()+speed.slice(1)}</button>
+    <button class="btn" id="mTalk">Cat smack talk: ${talkOn()?"On 😼":"Off 😶"}</button>
+    <button class="btn" id="mNew">Quit to main menu</button>
+    <button class="btn" id="mStats">📊 Stats</button>
+    <button class="btn" id="mTheme">${document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mRules">How to play</button>
+    <a class="btn" href="./">← All games</a></div>`);
+  $("mBack").onclick=closeDialog;
+  $("mSpeed").onclick=()=>{ setSpeed({slow:"normal",normal:"fast",fast:"slow"}[speed]); showMenu(); };
+  $("mTalk").onclick=()=>{ setTalk(!talkOn()); if(!talkOn()) $("dm").classList.remove("show"); showMenu(); };
+  $("mNew").onclick=()=>{
+    if (!G||G.over){ showStart(); return; }
+    dialog(`<h2>Quit this game?</h2><p>${G.campaign?"Quitting ends your campaign run.":"It won't count as a loss."}</p><div class="stack"><button class="btn primary" id="yN">Quit</button><button class="btn" id="nN">Keep playing</button></div>`);
+    $("yN").onclick=()=>{ if (G.campaign){ const st=loadStats(); st.run=0; writeLocal(STATS_KEY,st); } writeLocal(SAVE_KEY,null); G=null; showStart(); }; $("nN").onclick=showMenu;
+  };
+  $("mStats").onclick=()=>{ statsBack=showMenu; showStats(); };
+  $("mTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; try{localStorage.setItem("wordrack-theme",t);}catch(e){} showMenu(); };
+  $("mRules").onclick=()=>{
+    dialog(`<h2>How to play</h2>
+      <p>Each turn, roll five dice up to three times. Tap dice between rolls to hold them. Then score the roll in one empty box. Every box gets used once, so a bad roll sometimes means taking a 0.</p>
+      <p><b>Top section:</b> add up just the matching dice (three 5s in Fives = 15). Reach 63 or more for a 35-point bonus (that's three of each number).</p>
+      <p><b>Bottom section:</b> 3 and 4 of a Kind score all five dice. Full House 25, Small Straight (4 in a row) 30, Large Straight (5 in a row) 40, 5 of a Kind 50, Chance is the total.</p>
+      <p><b>Extra 5 of a Kinds:</b> +100 each if you already scored 50 in that box. It must go in its matching top box if that's open; otherwise it counts as a wild Full House or Straight.</p>
+      <p><b>Campaign:</b> beat Glorg, Sushi, Squeex and Mojito in a row. Lose or tie and you start over.</p>
+      <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
+    $("rOk").onclick=showMenu;
+  };
+}
+$("menuBtn").onclick=()=>{ if (G) showMenu(); else showStart(); };
+
+// ---------- Stats ----------
+let statsBack=null;
+function blankStats(){ return {levels:{},high:0,fives:0,campaigns:0,run:0,bestRun:0}; }
+function loadStats(){ return Object.assign(blankStats(), readLocal(STATS_KEY)||{}); }
+function recordResult(){
+  const st=loadStats(), L=st.levels[G.level]||(st.levels[G.level]={w:0,l:0,d:0}), [a]=G.scores;
+  L[G.result==="win"?"w":G.result==="loss"?"l":"d"]++;
+  let newHigh=false; if (a>st.high){ newHigh=st.high>0; st.high=a; }
+  st.fives+=(G.cards[0]["5k"]===50?1:0)+G.bonus[0];
+  if (G.campaign){
+    if (G.result==="win"){ st.run=G.level+1; st.bestRun=Math.max(st.bestRun,st.run); if (G.level===3){ st.campaigns++; st.run=0; } }
+    else st.run=0;
+  }
+  writeLocal(STATS_KEY,st);
+  return newHigh ? `🏆 New high score: ${a}!` : `vs ${CAT_FOR[G.level]}: ${L.w}–${L.l}${L.d?"–"+L.d:""}`;
+}
+function showStats(){
+  const st=loadStats();
+  const rows=LEVELS.map((l,i)=>{ const L=st.levels[i]; if(!L) return ""; return `<tr><td><b>${CAT_FOR[i]}</b> <span style="color:var(--muted);font-size:13px">${l}</span></td><td>${L.w}–${L.l}${L.d?"–"+L.d:""}</td></tr>`; }).join("");
+  dialog(`<h2>Dice Duel stats</h2>
+    <table class="res"><tr><td>High score</td><td>${st.high||"–"}</td></tr><tr><td>5 of a Kinds rolled</td><td>${st.fives}</td></tr>
+      <tr><td>Campaigns completed 🏆</td><td>${st.campaigns}</td></tr><tr><td>Best campaign run</td><td>${st.bestRun} / 4</td></tr></table>
+    ${rows?`<div class="lbl">Record vs each cat (W–L)</div><table class="res">${rows}</table>`:`<p>Finish a game to start your record.</p>`}
+    <div class="stack"><button class="btn primary" id="stClose">Close</button><button class="btn" id="stExp">Export stats (backup)</button><button class="btn" id="stImp">Import stats</button><button class="btn" id="stReset">Reset stats</button></div>`);
+  $("stClose").onclick=()=>{ statsBack?statsBack():closeDialog(); };
+  $("stExp").onclick=()=>{
+    const code="DD1:"+btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    dialog(`<h2>Export stats</h2><p>Copy this code somewhere safe. Paste it into Import to restore.</p><textarea id="eC" readonly>${code}</textarea><p id="eM"></p>
+      <div class="stack"><button class="btn primary" id="eCp">Copy code</button><button class="btn" id="eB">Back</button></div>`);
+    $("eCp").onclick=()=>{ const ta=$("eC"); ta.focus(); ta.select(); const ok=()=>$("eM").textContent="Copied ✓", bad=()=>$("eM").textContent="Long-press the selected code and choose Copy.";
+      try{ navigator.clipboard.writeText(code).then(ok,()=>{ try{ document.execCommand("copy")?ok():bad(); }catch(e){bad();} }); }catch(e){ bad(); } };
+    $("eB").onclick=showStats;
+  };
+  $("stImp").onclick=()=>{
+    dialog(`<h2>Import stats</h2><p>Paste a Dice Duel code from Export. This replaces your current Dice Duel stats.</p><textarea id="iC"></textarea><p id="iM"></p>
+      <div class="stack"><button class="btn primary" id="iGo">Import</button><button class="btn" id="iB">Back</button></div>`);
+    $("iGo").onclick=()=>{ try{ const raw=$("iC").value.trim(); if(!raw.startsWith("DD1:")) throw 0; const o=JSON.parse(decodeURIComponent(escape(atob(raw.slice(4))))); if(!o||typeof o.levels!=="object") throw 0; writeLocal(STATS_KEY,Object.assign(blankStats(),o)); showStats(); }catch(e){ $("iM").textContent="That code doesn't look right."; } };
+    $("iB").onclick=showStats;
+  };
+  $("stReset").onclick=()=>{
+    dialog(`<h2>Reset Dice Duel stats?</h2><p>This can't be undone.</p><div class="stack"><button class="btn primary" id="rsY">Reset</button><button class="btn" id="rsN">Cancel</button></div>`);
+    $("rsY").onclick=()=>{ writeLocal(STATS_KEY,blankStats()); showStats(); }; $("rsN").onclick=showStats;
+  };
+}
+
+// ---------- Boot ----------
+buildDice();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+(function(){ const saved=readLocal(SAVE_KEY); if (saved && !saved.over) resume(saved); else showStart(); })();
+</script>
+</body>
+</html>
