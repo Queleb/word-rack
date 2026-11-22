@@ -136,7 +136,10 @@ const roundsLeft=p=>13-Object.keys(G.cards[p]).length;
 
 // ---------- Rolling ----------
 function rollDice(){
-  const idx=[]; G.dice=G.dice.map((v,i)=>{ if (G.held[i]&&v) return v; idx.push(i); return 1+rnd(6); });
+  const pairs=G.dice.map((v,i)=> (G.held[i]&&v) ? {v,h:true} : {v:1+rnd(6),h:false});
+  pairs.sort((a,b)=>a.v-b.v);
+  G.dice=pairs.map(p=>p.v); G.held=pairs.map(p=>p.h);
+  const idx=pairs.map((p,i)=>p.h?-1:i).filter(i=>i>=0);
   G.rollsLeft--; save(); render();
   idx.forEach(i=>{ const el=$("dice").children[i]; el.classList.remove("roll"); void el.offsetWidth; el.classList.add("roll"); });
 }
@@ -345,7 +348,7 @@ function showMenu(){
       <p>Each turn, roll five dice up to three times. Tap dice between rolls to hold them. Then score the roll in one empty box. Every box gets used once, so a bad roll sometimes means taking a 0.</p>
       <p><b>Top section:</b> add up just the matching dice (three 5s in Fives = 15). Reach 63 or more for a 35-point bonus (that's three of each number).</p>
       <p><b>Bottom section:</b> 3 and 4 of a Kind score all five dice. Full House 25, Small Straight (4 in a row) 30, Large Straight (5 in a row) 40, 5 of a Kind 50, Chance is the total.</p>
-      <p><b>Extra 5 of a Kinds:</b> +100 each if you already scored 50 in that box. It must go in its matching top box if that's open; otherwise it counts as a wild Full House or Straight.</p>
+      <p><b>Extra 5 of a Kinds:</b> +100 each if you already scored 50 in that box. You can score it in any open box, and it counts as a wild Full House or Straight.</p>
       <p><b>Campaign:</b> beat Glorg, Sushi, Squeex and Mojito in a row. Lose or tie and you start over.</p>
       <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
     $("rOk").onclick=showMenu;

@@ -7,17 +7,10 @@
   const isFive=d=>d.length===5&&d.every(x=>x===d[0]);
   const hasRun=(c,len)=>{ let run=0; for(let v=1;v<=6;v++){ run=c[v]?run+1:0; if(run>=len) return true; } return false; };
 
-  // Joker rule (official): a 5-of-a-kind after the 5-of-a-kind box is filled must go in its
-  // matching upper box if open; otherwise any lower box scores in full; otherwise zero an upper box.
+  // House rule: an extra 5-of-a-kind (after the 5-of-a-kind box is filled) can go in ANY open box,
+  // and counts as a wild Full House / Small Straight / Large Straight.
   function jokerState(d,card){ return isFive(d) && card["5k"]!=null; }
-  function allowed(d,card){
-    const open=BOXES.filter(b=>card[b]==null);
-    if (jokerState(d,card)){
-      const up=String(d[0]); if (card[up]==null) return [up];
-      const lower=open.filter(b=>!/^[1-6]$/.test(b)); if (lower.length) return lower;
-    }
-    return open;
-  }
+  function allowed(d,card){ return BOXES.filter(b=>card[b]==null); }
   function score(box,d,card){
     const c=counts(d), s=sum(d), joker=jokerState(d,card);
     if (/^[1-6]$/.test(box)){ const v=+box; return c[v]*v; }

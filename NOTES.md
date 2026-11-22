@@ -21,7 +21,7 @@ Opponents and personalities throughout the games. Photos are `cat-*.jpg`; lines 
 | `hearts.html` | Hearts | 3 random cats, Mixed difficulty, Expert uses look-ahead (card counting), game speed setting |
 | `sudoku.html` | Sudoku | 4 difficulties, notes, 3 hints, 3 mistakes, timer, score |
 | `chess.html` + `chess-engine.js` | Chess | Cat tied to difficulty, engine runs in a background worker, rules verified with perft |
-| `dice.html` + `dice-ai.js` | Dice Duel (Yahtzee-style) | 1v1 vs a cat, campaign = beat all 4 cats in a row, game speed setting |
+| `dice.html` + `dice-ai.js` | Dice Duel (Yahtzee-style) | 1v1 vs a cat, campaign = beat all 4 cats in a row, game speed setting. House rule: extra 5-of-a-kinds can go in any box (wild for Full House/straights), +100 each. Dice sort low to high after each roll. |
 
 Shared: `cats.js` (names, pronouns, win/lose/draw lines, table talk), `sw.js` (offline cache: bump `CACHE` and add new files to `FILES` whenever files change), `manifest.webmanifest` (app name "Glorg's Games").
 Settings shared across games via localStorage: `wordrack-theme` (dark/light), `cats-talk` (smack talk on/off).
@@ -42,12 +42,13 @@ Not all of these will be built. Suggested order first.
 | 8 | Lane defense (Plants vs. Zombies) | Medium–hard | Content-heavy (many unit types) to stay interesting. |
 | 9 | Endless runner | Medium | 2D side-scroller (Jetpack Joyride / Monster Dash) only, not 3D. Most constant animation, so hardest to keep cool. |
 | 10 | Flick home run | Hardest to get right | Feel depends on lots of tuning; expect many playtest rounds. |
+| 11 | Poker | Medium | Two modes: standard Texas Hold'em vs the cats (betting, bluffing cat personalities), plus a simplified quick mode in the style of the New Super Mario Bros. DS dealer minigame (one draw/hold round, hand vs the dealer, betting a stack of coins). Turn-based, so light on battery. Suggested idea added Nov 2026. |
 
 **Real-time games (4–10) must stay cool:** the whole project started because a Flash site overheated the phone.
 Only redraw what moves, pause when the app is hidden, keep effects simple, and avoid always-running animation loops on menus.
 All visuals are drawn in code (shapes, CSS, SVG); no outside art or assets.
 
 ## How updates are delivered
-Claude builds the files and sends a zip. Unzip, then in this repository: **Add file → Upload files**, drag in every file, **Commit changes**.
+GitHub is connected to Claude (Nov 2026), so Claude commits and pushes updates straight to `main`; GitHub Pages redeploys within a minute or two.
 On the phone, open the app once while online to pick up the update.
-If GitHub gets connected to Claude (claude.ai → Settings → Connectors → GitHub), Claude can commit updates directly instead.
+Fallback if that ever stops working: Claude sends a zip; unzip, then **Add file → Upload files** here, drag in every file, **Commit changes**.
