@@ -41,7 +41,7 @@
   #msg.err{color:#b23a26}
   #boardArea{position:relative}
   #boardWrap{width:100%;aspect-ratio:1;overflow:auto;border-radius:6px;touch-action:pan-x pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-  #zoomBtn{position:absolute;right:6px;bottom:6px;width:38px;height:38px;border-radius:19px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:24px;line-height:1;opacity:.92;box-shadow:0 2px 6px rgba(0,0,0,.25);z-index:2}
+  #zoomBtn{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;font-size:18px;padding:0 9px;color:var(--ink)}
   html,body{touch-action:pan-x pan-y}
   #board{width:calc(100% * var(--z,1));container-type:inline-size;display:grid;grid-template-columns:repeat(15,minmax(0,1fr));grid-template-rows:repeat(15,minmax(0,1fr));gap:1px;background:var(--line);border:2px solid var(--line);border-radius:6px;aspect-ratio:1;user-select:none}
   .cell{position:relative;min-width:0;min-height:0;background:var(--board);display:flex;align-items:center;justify-content:center;font-size:2.15cqw;font-weight:700;color:rgba(255,255,255,.95);overflow:hidden}
@@ -101,7 +101,7 @@
 <div id="app">
   <header id="scores"></header>
   <div id="msg"></div>
-  <div id="boardArea"><div id="dm"></div><div id="boardWrap"><div id="board"></div></div><button id="zoomBtn" aria-label="Zoom board">+</button></div>
+  <div id="boardArea"><div id="dm"></div><div id="boardWrap"><div id="board"></div></div></div>
   <div id="rack"></div>
   <div id="controls">
     <button class="btn primary wide" id="playBtn">Play</button>
@@ -124,7 +124,7 @@ const N = 15, CENTER = 112, SAVE_KEY = "wordrack-save-v1";
 const VAL = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10,"?":0};
 const DIST = {A:9,B:2,C:2,D:4,E:12,F:2,G:3,H:2,I:9,J:1,K:1,L:4,M:2,N:6,O:8,P:2,Q:1,R:6,S:4,T:6,U:4,V:2,W:2,X:1,Y:2,Z:1,"?":2};
 const LEVELS = ["Easy","Medium","Hard","Expert"];
-const HINTS_FOR = [-1,5,3,0];   // -1 = unlimited
+const HINTS_FOR = [5,3,1,0];
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Premium squares
@@ -150,10 +150,27 @@ const rnd = n => Math.floor(Math.random()*n);
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 // ---------- Dictionary ----------
+// ENABLE is a public-domain Scrabble word list. Loaded from your site if you add enable1.txt, otherwise from GitHub,
+// then kept on the phone for offline play. If neither can be reached, the built-in list is used.
+const ENABLE_URL="https://raw.githubusercontent.com/dolph/dictionary/master/enable1.txt";
+const GAME_EXTRAS="AA AB AD AE AG AH AI AL AM AN AR AS AT AW AX AY BA BE BI BO BY DA DE DO ED EF EH EL EM EN ER ES EW EX FA FE GI GO HA HE HI HM HO ID IF IN IS IT JO KA KI LA LI LO MA ME MI MM MO MU MY NA NE NO NU OD OE OF OH OI OK OM ON OP OR OS OW OX OY PA PE PI PO QI RE SH SI SO TA TE TI TO UH UM UN UP US UT WE WO XI XU YA YE YO ZA QIS ZAS KIS OKA OKE EMOJI EMOJIS QAT QATS QAID QAIDS QOPH QOPHS FAQIR FAQIRS QANAT QANATS TRANQ TRANQS QINDAR QINTAR SHEQEL SUQ SUQS".split(" ");
+let DICT_NAME="built-in";
+async function fetchText(url,ms){
+  const ctl=typeof AbortController!=="undefined"?new AbortController():null;
+  const t=setTimeout(()=>ctl&&ctl.abort(),ms);
+  try{ const r=await fetch(url,ctl?{signal:ctl.signal}:{}); clearTimeout(t); return r.ok?await r.text():null; }catch(e){ clearTimeout(t); return null; }
+}
 async function loadDict(){
-  const res = await fetch("words.txt");
-  const txt = await res.text();
-  const arr = txt.split("\n").map(w=>w.trim()).filter(Boolean);
+  let arr=null;
+  for (const [url,ms] of [["enable1.txt",6000],[ENABLE_URL,12000]]){
+    const txt=await fetchText(url,ms); if (!txt) continue;
+    const a=txt.split(/\r?\n/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{2,15}$/.test(w));
+    if (a.length>150000){ arr=a.concat(GAME_EXTRAS); DICT_NAME="ENABLE Scrabble list"; break; }
+  }
+  if (!arr){
+    const txt=await fetchText("words.txt",15000)||"";
+    arr=txt.split("\n").map(w=>w.trim()).filter(Boolean);
+  }
   WORDS = new Set(arr);
   TRIE = {};
   for (const w of arr){
@@ -416,10 +433,15 @@ let dmTimer=null;
 const TALK_KEY="cats-talk";
 const talkOn=()=>{ try{ return localStorage.getItem(TALK_KEY)!=="off"; }catch(e){ return true; } };
 function setTalk(on){ try{ localStorage.setItem(TALK_KEY,on?"on":"off"); }catch(e){} if (!on) $("dm").classList.remove("show"); }
+let dmUntil=0;   // the next CPU waits until the current message has been readable for a while
 function dm(cat, kind, chance){
   if (!cat || !talkOn() || (chance!=null && Math.random()>chance)) return;
-  const el=$("dm"); el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${GameCats.line(kind,cat)}</div>`;
-  el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),4800);
+  if (Date.now()<dmUntil-2500 && kind!=="cpuBingo" && kind!=="youBingo") return;   // don't talk over each other
+  const line=GameCats.line(kind,cat), el=$("dm");
+  el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${line}</div>`;
+  const readMs=Math.max(3800, 2200+line.length*55);
+  el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),readMs+2500);
+  dmUntil=Date.now()+readMs;
 }
 const cpuCats=()=>S.players.filter(p=>!p.human&&p.cat);
 const anyCat=()=>{ const c=cpuCats(); return c.length?c[rnd(c.length)].cat:null; };
@@ -476,7 +498,7 @@ function afterMove(){
   if (S.scoreless >= S.players.length*3){ endGame(null); return; }
   S.turn=(S.turn+1)%S.players.length; S.turnNo=(S.turnNo||0)+1;
   save(); render();
-  if (!S.players[S.turn].human) setTimeout(cpuTurn, 450);
+  if (!S.players[S.turn].human) setTimeout(cpuTurn, Math.max(450, dmUntil-Date.now()));
   else setTimeout(checkStuck, 400);
 }
 
@@ -574,8 +596,8 @@ function render(){
   // scores
   const h=$("scores");
   h.innerHTML=S.players.map((p,i)=>`<div class="pl ${i===S.turn&&!S.over?"turn":""}">${p.cat?`<img class="pav" src="${GameCats.img(p.cat)}" alt="">`:""}${p.name}${p.human?"":` · ${LEVELS[S.level]}`}<b>${p.score}</b></div>`).join("")
-    +`<div class="bagbox">Bag<b>${S.bag.length}</b></div><button id="menuBtn" aria-label="Menu">☰</button>`;
-  $("menuBtn").onclick=showMenu;
+    +`<div class="bagbox">Bag<b>${S.bag.length}</b></div><button id="zoomBtn" aria-label="Zoom board">${zoom>1.05?"−":"🔍"}</button><button id="menuBtn" aria-label="Menu">☰</button>`;
+  $("menuBtn").onclick=showMenu; $("zoomBtn").onclick=zoomClick;
   // board
   const cells=$("board").children, pmap=new Map(pending.map(p=>[p.idx,p])), last=new Set(S.last);
   for (let i=0;i<N*N;i++){
@@ -726,7 +748,7 @@ $("swapBtn").onclick=()=>{
 $("lookBtn").onclick=()=>{
   dialog(`<h2>Check a word</h2><input id="wIn" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:100%;font-size:20px;padding:10px;border-radius:8px;border:1px solid var(--line);text-transform:uppercase;background:var(--panel);color:var(--ink)">
     <p id="wOut" style="min-height:22px"></p><div class="stack"><button class="btn primary" id="wGo">Check</button><button class="btn" id="wClose">Close</button></div>`);
-  const go=()=>{ const w=$("wIn").value.trim().toUpperCase(); if(!w) return; $("wOut").innerHTML = WORDS.has(w)?`✅ <b>${w}</b> is a valid word`:`❌ <b>${w}</b> isn't in the dictionary`; };
+  const go=()=>{ const w=$("wIn").value.trim().toUpperCase(); if(!w) return; $("wOut").innerHTML = (WORDS.has(w)?`✅ <b>${w}</b> is a valid word`:`❌ <b>${w}</b> isn't in the dictionary`)+`<br><span style="font-size:12px">Dictionary: ${DICT_NAME} (${WORDS.size.toLocaleString()} words)</span>`; };
   $("wGo").onclick=go; $("wIn").onkeydown=e=>{ if(e.key==="Enter") go(); };
   $("wClose").onclick=closeDialog;
 };
@@ -900,9 +922,9 @@ function setZoom(z,cx,cy){
   const fx=(wrap.scrollLeft+cx)/zoom, fy=(wrap.scrollTop+cy)/zoom;
   zoom=z; $("board").style.setProperty("--z",z);
   wrap.scrollLeft=fx*z-cx; wrap.scrollTop=fy*z-cy;
-  $("zoomBtn").textContent = z>1.05 ? "−" : "+";
+  if ($("zoomBtn")) $("zoomBtn").textContent = z>1.05 ? "−" : "🔍";
 }
-$("zoomBtn").onclick=()=>{
+function zoomClick(){
   if (zoom>1.05){ setZoom(1); return; }
   // zoom in around the most recent play (or the center)
   const wrap=$("boardWrap"), idxs=(S&&S.last&&S.last.length)?S.last:[CENTER];
