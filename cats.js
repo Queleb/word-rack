@@ -75,6 +75,14 @@
       "{n} says you're evenly matched, which is a compliment to you.",
     ],
     diceHello: ["Feeling lucky? You shouldn't.","I've been blowing on these dice all morning.","Prepare to be out-rolled.","My paws are very lucky. Ask anyone."],
+    // Purrperty table talk
+    propHello: ["I hope you brought snacks. And money.","This whole board will be mine.","I've already picked out my favorite street.","Prepare to pay rent. Lots of rent."],
+    catCollects: ["Pay up, human.","Thank you for your donation.","Rent's due. Treats accepted too.","Ka-ching. That's the sound of my new cat tree.","Wipe your paws on the way out."],
+    youCollect: ["Fine. Take it.","I was going to spend that on catnip.","This is robbery.","I'll remember this."],
+    catSet: ["Full set. Start saving.","That color is all mine now.","Houses incoming. Big ones."],
+    catDecline: ["Nice try.","That's a terrible deal and you know it.","No thank you. I'm not a kitten.","Hmm, no."],
+    catAccept: ["Deal! Pleasure doing business.","You drive a hard bargain. Fine.","Shake on it? Paw on it."],
+    youBroke: ["Better luck next life. You have eight left.","Don't worry, I'll take good care of your properties."],
     // Chess table talk
     chessHello: ["Prepare to be outplayed.","I've been practicing on the scratching post.","Let's make this quick, I have a nap scheduled.","Good luck. You'll need it.","I hope you like losing pieces."],
     cpuTake: ["Mine now.","Thank you for the snack.","I'll be taking that.","Oops, did you need that?","Into the toy box it goes."],

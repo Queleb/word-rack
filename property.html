@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glorg's Games">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1916">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Purrperty</title>
+<script>
+  (function(){ let t=null; try{ t=localStorage.getItem("wordrack-theme"); }catch(e){}
+    if(!t) t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";
+    document.documentElement.dataset.theme=t; })();
+</script>
+<style>
+  :root{--bg:#f4efe6;--ink:#2b2621;--muted:#7a6f63;--line:#d6c9b1;--panel:#fff8ec;--accent:#2f6f5e;--boardBg:#dfeee2;--cell:#fbf7ee;--cellLine:#b9ad99}
+  :root[data-theme=dark]{--bg:#1b1916;--ink:#efe7da;--muted:#a39886;--line:#3e3933;--panel:#26231f;--accent:#3d8a75;--boardBg:#1f3a30;--cell:#2a2622;--cellLine:#4a433b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+  #app{max-width:560px;margin:0 auto;padding:calc(6px + env(safe-area-inset-top)) calc(6px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+  .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .top h1{flex:1;margin:0;font-size:19px;text-align:center}
+  .iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;font-size:15px;font-weight:600;padding:8px 11px;text-decoration:none}
+  #players{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:5px;margin-bottom:6px}
+  .pchip{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:11px;background:var(--panel);border:1px solid var(--line);min-width:0}
+  .pchip.turn{box-shadow:0 0 0 2px #e6b800 inset}
+  .pchip.out{opacity:.4}
+  .pchip .av{width:28px;height:28px;flex:0 0 auto}
+  .pchip .nm{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pchip .cash{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+  .av{border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px var(--c,#999)}
+  .youav{display:flex;align-items:center;justify-content:center;background:var(--c);color:#fff;font-weight:800;font-size:14px}
+  #board{position:relative;display:grid;grid-template-columns:repeat(11,minmax(0,1fr));grid-template-rows:repeat(11,minmax(0,1fr));aspect-ratio:1;width:100%;
+    background:var(--boardBg);border:2px solid var(--cellLine);border-radius:6px;overflow:hidden;container-type:inline-size;user-select:none;-webkit-user-select:none}
+  .cell{position:relative;background:var(--cell);border:0.5px solid var(--cellLine);display:flex;align-items:center;justify-content:center;font-size:4.2cqw;min-width:0;min-height:0;overflow:hidden}
+  .cell .tint{position:absolute;inset:0;opacity:.32;pointer-events:none}
+  .cell .band{position:absolute;pointer-events:none}
+  .cell.bot .band{left:0;right:0;top:0;height:26%} .cell.top .band{left:0;right:0;bottom:0;height:26%}
+  .cell.lft .band{top:0;bottom:0;right:0;width:26%} .cell.rgt .band{top:0;bottom:0;left:0;width:26%}
+  .cell .hs{position:absolute;display:flex;gap:1px;pointer-events:none;z-index:1}
+  .cell.bot .hs{top:1px;left:2px} .cell.top .hs{bottom:1px;left:2px} .cell.lft .hs{right:1px;top:2px;flex-direction:column} .cell.rgt .hs{left:1px;top:2px;flex-direction:column}
+  .hs i{width:1.25cqw;height:1.25cqw;background:#2f9a58;border:0.5px solid #fff;display:block}
+  .hs i.hotel{width:2.6cqw;background:#c0392b}
+  .cell.lft .hs i.hotel,.cell.rgt .hs i.hotel{width:1.25cqw;height:2.6cqw}
+  .cell.mort{background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(0,0,0,.18) 3px 5px)}
+  .cell .pr{position:absolute;font-size:1.9cqw;font-weight:700;color:var(--muted);pointer-events:none}
+  .cell.bot .pr{bottom:1px} .cell.top .pr{top:1px} .cell.lft .pr{left:1px;writing-mode:vertical-rl;transform:rotate(180deg)} .cell.rgt .pr{right:1px;writing-mode:vertical-rl}
+  .cell.corner{font-size:6cqw}
+  .cell.hl{box-shadow:inset 0 0 0 2px #e6b800}
+  #center{grid-row:2/11;grid-column:2/11;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5cqw;padding:3cqw;text-align:center}
+  #center .logo{font-size:6.5cqw;font-weight:800;opacity:.18;letter-spacing:.5px}
+  .dice{display:flex;gap:2cqw}
+  .die{width:9cqw;height:9cqw;background:#fffdf8;border-radius:22%;box-shadow:0 0.6cqw 0 rgba(0,0,0,.25);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:1.2cqw}
+  .die span{width:1.8cqw;height:1.8cqw;margin:auto;border-radius:50%;background:#2b2621;visibility:hidden}
+  .die.roll{animation:shake .4s ease-out}
+  @keyframes shake{0%{transform:rotate(0)}30%{transform:rotate(-15deg) translateY(-1cqw)}65%{transform:rotate(10deg)}100%{transform:rotate(0)}}
+  #say{font-size:3.4cqw;line-height:1.35;max-width:92%;min-height:9cqw}
+  #card{display:none;background:#fffdf8;color:#2b2621;border-radius:2cqw;padding:2.5cqw 3cqw;font-size:3.2cqw;line-height:1.35;box-shadow:0 1cqw 3cqw rgba(0,0,0,.3);max-width:92%}
+  #card b{display:block;font-size:2.7cqw;letter-spacing:.5px;color:#8a6a2a;margin-bottom:1cqw}
+  .tok{position:absolute;width:4.6%;height:4.6%;z-index:5;transition:left var(--step,90ms) linear,top var(--step,90ms) linear;pointer-events:none}
+  .tok img,.tok div{width:100%;height:100%;border-radius:50%;object-fit:cover;box-shadow:0 0 0 0.45cqw var(--c),0 0.5cqw 1cqw rgba(0,0,0,.4)}
+  .tok div{display:flex;align-items:center;justify-content:center;background:var(--c);color:#fff;font-size:2.4cqw;font-weight:800}
+  #actions{display:grid;gap:6px;margin-top:8px}
+  .row{display:flex;gap:6px}
+  .row>*{flex:1}
+  .btn{padding:12px 6px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:15px;font-weight:600;color:var(--ink);text-align:center;text-decoration:none;display:block}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.warn{background:#b23a26;border-color:#b23a26;color:#fff}
+  .btn:disabled{opacity:.45}
+  .info{font-size:14px;text-align:center;color:var(--muted);min-height:18px}
+  .info b{color:var(--ink)}
+  details{margin-top:10px;font-size:13px} summary{color:var(--muted);padding:4px 2px}
+  #log{margin:4px 0 0;padding-left:20px;max-height:200px;overflow:auto} #log li{margin:2px 0}
+  #dm{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translate(-50%,-10px);width:min(94vw,520px);z-index:50;display:flex;align-items:center;gap:8px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:7px 10px;box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:14px;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s}
+  #dm.show{opacity:1;transform:translate(-50%,0)}
+  #dm img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+  .overlay{position:fixed;inset:0;background:rgba(20,18,15,.55);display:flex;align-items:center;justify-content:center;padding:14px;z-index:100}
+  .hidden{display:none}
+  .dcard{background:var(--bg);border-radius:16px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+  .dcard h1{margin:0 0 4px;font-size:26px} .dcard h2{margin:0 0 10px;font-size:20px}
+  .dcard p{margin:6px 0;color:var(--muted);font-size:14px;line-height:1.4}
+  .lbl{font-size:13px;color:var(--muted);margin:14px 0 6px;font-weight:600}
+  .seg{display:grid;gap:6px}
+  .seg button{padding:9px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:13.5px;font-weight:600;color:var(--ink)}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stack{display:grid;gap:8px;margin-top:14px}
+  .res{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}
+  .res td{padding:5px 4px;border-bottom:1px solid var(--line)}
+  .res td:last-child{text-align:right;font-weight:700}
+  .deed{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+  .deed .hd{padding:10px;color:#fff;font-weight:800;text-align:center;font-size:17px}
+  .deed .bd{padding:8px 12px}
+  .mg{border:1px solid var(--line);border-radius:12px;margin-top:8px;overflow:hidden}
+  .mg .gh{padding:6px 10px;font-weight:700;font-size:13px;color:#fff}
+  .mg .pr{display:flex;align-items:center;gap:6px;padding:7px 8px;border-top:1px solid var(--line);font-size:14px}
+  .mg .pr .n{flex:1;min-width:0}
+  .mg .pr small{color:var(--muted);display:block;font-size:11.5px}
+  .mg .pr button{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:600}
+  .mg .pr button:disabled{opacity:.35}
+  .tcol{border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:8px}
+  .tcol h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:6px}
+  .tcol label{display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:14px;border-top:1px solid var(--line)}
+  .tcol label .sw{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+  .tcol label.dis{opacity:.4}
+  .step{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:14px}
+  .step button{width:34px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-weight:800}
+  .step b{min-width:58px;text-align:center}
+  .cat{width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px #ead39f,0 2px 8px rgba(0,0,0,.25)}
+  .cat.big{width:110px;height:110px;display:block;margin:4px auto 10px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .quote{text-align:center;font-size:16px;color:var(--ink)!important}
+  textarea{width:100%;height:110px;font-size:12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <a class="iconbtn" href="./">← Games</a>
+    <h1 id="title">Purrperty</h1>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu">☰</button>
+  </div>
+  <div id="players"></div>
+  <div id="board"></div>
+  <div id="actions"></div>
+  <details><summary>History</summary><ol id="log"></ol></details>
+</div>
+<div id="dm"></div>
+<div id="dialog" class="overlay hidden"><div class="dcard" id="dlg"></div></div>
+
+<script src="cats.js"></script>
+<script src="property-engine.js"></script>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const PG=window.PropGame, B=PG.BOARD;
+const rnd=n=>Math.floor(Math.random()*n);
+const LEVELS=["Easy","Medium","Hard","Expert","Mixed"];
+const COLORS=["#e6a100","#d0453b","#3a7bd5","#8e44ad"];
+const SAVE_KEY="prop-save-v1", STATS_KEY="prop-stats-v1", SPEED_KEY="prop-speed", TALK_KEY="cats-talk";
+const SPEEDS={slow:{step:170,ai:1100,card:2600},normal:{step:95,ai:650,card:1900},fast:{step:45,ai:260,card:1100}};
+let speed=(()=>{ try{ return localStorage.getItem(SPEED_KEY)||"normal"; }catch(e){ return "normal"; } })();
+const T_=()=>SPEEDS[speed]||SPEEDS.normal;
+const talkOn=()=>{ try{ return localStorage.getItem(TALK_KEY)!=="off"; }catch(e){ return true; } };
+const setTalk=on=>{ try{ localStorage.setItem(TALK_KEY,on?"on":"off"); }catch(e){} };
+function readLocal(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function writeLocal(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+const money=n=>"$"+Math.round(n).toLocaleString();
+
+let S=null, animating=false, aiTimer=null, shownPos=null;
+const ME=()=>S.players.findIndex(p=>p.human);
+const save=()=>{ if (S){ const c={...S,events:[]}; writeLocal(SAVE_KEY,c); } };
+
+// ---------- Board geometry ----------
+function rc(i){ if(i<=10) return [10,10-i]; if(i<=20) return [10-(i-10),0]; if(i<=30) return [0,i-20]; return [i-30,10]; }
+function side(i){ if(i>0&&i<10) return "bot"; if(i>10&&i<20) return "lft"; if(i>20&&i<30) return "top"; if(i>30) return "rgt"; return "corner"; }
+function buildBoard(){
+  const b=$("board"); b.innerHTML="";
+  for(let i=0;i<40;i++){ const [r,c]=rc(i); const d=document.createElement("div"); d.className="cell "+side(i); d.dataset.i=i; d.style.gridRow=r+1; d.style.gridColumn=c+1; b.appendChild(d); }
+  const ctr=document.createElement("div"); ctr.id="center";
+  ctr.innerHTML=`<div class="logo">PURRPERTY</div><div class="dice"><div class="die" id="d0">${"<span></span>".repeat(9)}</div><div class="die" id="d1">${"<span></span>".repeat(9)}</div></div><div id="card"></div><div id="say"></div>`;
+  b.appendChild(ctr);
+  b.addEventListener("click",e=>{ const c=e.target.closest(".cell"); if(c) showDeed(+c.dataset.i); });
+}
+const PIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function showDice(d,anim){ [0,1].forEach(k=>{ const el=$("d"+k), v=d[k]||0; [...el.children].forEach((s,j)=>s.style.visibility=v&&PIPS[v].includes(j)?"visible":"hidden"); if(anim){ el.classList.remove("roll"); void el.offsetWidth; el.classList.add("roll"); } }); }
+function avatarHTML(i,cls){ const p=S.players[i]; return p.cat ? `<img class="${cls||"av"}" src="${GameCats.img(p.cat)}" style="--c:${p.color}" alt="">` : `<div class="${cls||"av"} youav" style="--c:${p.color}">★</div>`; }
+
+function renderBoard(){
+  const cells=$("board").querySelectorAll(".cell");
+  cells.forEach(el=>{
+    const i=+el.dataset.i, s=B[i], o=S.owner[i];
+    let h="";
+    if (s.t==="st") h+=`<div class="band" style="background:${PG.GCOL[s.g]}"></div>`;
+    if (o>=0) h+=`<div class="tint" style="background:${S.players[o].color}"></div>`;
+    if (s.t==="st" && S.houses[i]) h+=`<div class="hs">${S.houses[i]===5?'<i class="hotel"></i>':'<i></i>'.repeat(S.houses[i])}</div>`;
+    if (s.icon) h+=`<span>${s.icon}</span>`;
+    else if (o<0 && s.price) h+=`<span class="pr">$${s.price}</span>`;
+    el.innerHTML=h;
+    el.classList.toggle("mort",!!S.mort[i]);
+  });
+  placeTokens();
+}
+function placeTokens(){
+  const b=$("board"); b.querySelectorAll(".tok").forEach(t=>t.remove());
+  const at={}; S.players.forEach((p,k)=>{ if(!p.out){ const pos=shownPos?shownPos[k]:p.pos; (at[pos]=at[pos]||[]).push(k); } });
+  for (const pos in at) at[pos].forEach((k,j)=>{
+    const [r,c]=rc(+pos), n=at[pos].length;
+    const off=[[0,0],[1,0],[0,1],[1,1]][j]||[0,0];
+    const t=document.createElement("div"); t.className="tok"; t.id="tok"+k;
+    t.style.setProperty("--c",S.players[k].color);
+    const x=(c+0.18+off[0]*0.36+(n===1?0.18:0))/11*100, y=(r+0.18+off[1]*0.36+(n===1?0.18:0))/11*100;
+    t.style.left=x+"%"; t.style.top=y+"%";
+    t.innerHTML= S.players[k].cat ? `<img src="${GameCats.img(S.players[k].cat)}" alt="">` : `<div>★</div>`;
+    b.appendChild(t);
+  });
+}
+function renderPlayers(){
+  $("players").innerHTML=S.players.map((p,i)=>`<div class="pchip${i===S.cur&&!S.over?" turn":""}${p.out?" out":""}" data-p="${i}">${avatarHTML(i)}<div style="min-width:0"><div class="nm">${p.human?"You":p.name}${p.jail?" 🏥":""}${p.cards?" 🎟️":""}</div><div class="cash">${p.out?"Out":money(p.cash)}</div></div></div>`).join("");
+  $("players").querySelectorAll(".pchip").forEach(el=>el.onclick=()=>showHoldings(+el.dataset.p));
+}
+function say(t){ $("say").innerHTML=t; }
+function render(){
+  if (!S) return;
+  $("title").textContent= S.mode==="rounds" ? `Purrperty · Round ${Math.min(S.round,S.rounds)}/${S.rounds}` : `Purrperty · Round ${S.round}`;
+  renderPlayers(); renderBoard(); showDice(S.dice,false); renderActions();
+  $("log").innerHTML=S.log.slice(-60).reverse().map(l=>`<li>${l}</li>`).join("");
+}
+
+// ---------- Your buttons ----------
+function renderActions(){
+  const A=$("actions"), me=ME(), pl=S.players[me];
+  if (S.over){ A.innerHTML=`<button class="btn primary" id="aEnd">See results</button>`; $("aEnd").onclick=showEnd; return; }
+  if (S.actor!==me || animating){
+    const who=S.players[S.actor]; A.innerHTML=`<div class="info">${who&&!who.human?`<b>${who.name}</b> is ${S.phase==="auction"?"bidding":S.phase==="debt"?"raising money":"playing"}…`:"…"}</div>`; return; }
+  const manage=`<button class="btn" id="aManage">Manage</button>`, trade=`<button class="btn" id="aTrade">Trade</button>`;
+  let h="";
+  switch (S.phase){
+    case "turn":
+      if (pl.jail){
+        h=`<div class="info">You're at the <b>Vet's Office</b> (try ${pl.jailTurns+1} of 3).</div>
+          <div class="row"><button class="btn primary" id="aRoll">Roll for doubles</button>${pl.cards?`<button class="btn" id="aCard">Use free card</button>`:`<button class="btn" id="aPayJ" ${pl.cash<PG.JAIL_FINE?"disabled":""}>Pay $${PG.JAIL_FINE}</button>`}</div>
+          <div class="row">${manage}${trade}</div>`;
+      } else h=`<div class="info">${S.dbl?"Doubles! Roll again.":"Your turn."}</div><div class="row"><button class="btn primary" id="aRoll">🎲 Roll</button></div><div class="row">${manage}${trade}</div>`;
+      break;
+    case "buy": { const i=S.pending.i, s=B[i], can=pl.cash>=s.price;
+      h=`<div class="info">You landed on <b>${s.n}</b>.${can?"":" You can't afford it, so it goes to auction."}</div>
+        <div class="row"><button class="btn primary" id="aBuy" ${can?"":"disabled"}>Buy for ${money(s.price)}</button><button class="btn" id="aDecl">Auction</button></div>
+        <div class="row"><button class="btn" id="aDeed">See card</button>${manage}</div>`; break; }
+    case "auction": { const a=S.auction, mn=PG.minBid(S), lead=a.leader>=0?(a.leader===me?"You":S.players[a.leader].name):"nobody";
+      h=`<div class="info">Auction: <b>${B[a.i].n}</b> · top bid <b>${a.leader>=0?money(a.price):"none"}</b> (${lead})</div>
+        <div class="row"><button class="btn primary" id="aBid1" ${pl.cash<mn?"disabled":""}>Bid ${money(mn)}</button><button class="btn" id="aBid2" ${pl.cash<mn+40?"disabled":""}>${money(mn+40)}</button><button class="btn" id="aBid3" ${pl.cash<mn+90?"disabled":""}>${money(mn+90)}</button></div>
+        <div class="row"><button class="btn" id="aPass">Drop out</button><button class="btn" id="aDeed">See card</button></div>`; break; }
+    case "debt": { const d=S.debts[0], short=d.amount-pl.cash;
+      h=`<div class="info">You owe <b>${money(d.amount)}</b> to ${d.to>=0?S.players[d.to].name:"the bank"}.${short>0?` You're <b>${money(short)}</b> short: sell houses or mortgage in Manage.`:""}</div>
+        <div class="row"><button class="btn primary" id="aPayD" ${short>0?"disabled":""}>Pay ${money(d.amount)}</button>${manage}</div>
+        <div class="row"><button class="btn warn" id="aBroke">Declare bankruptcy</button></div>`; break; }
+    case "post":
+      h=`<div class="row"><button class="btn primary" id="aEndT">End turn</button></div><div class="row">${manage}${trade}</div>`; break;
+    case "offer": showOffer(); h=`<div class="info">${S.players[S.offer.a].name} has an offer for you.</div>`; break;
+  }
+  A.innerHTML=h;
+  const on=(id,fn)=>{ const e=$(id); if(e) e.onclick=fn; };
+  on("aRoll",()=>act(()=>PG.roll(S)));
+  on("aPayJ",()=>act(()=>PG.payJail(S)));
+  on("aCard",()=>act(()=>PG.useCard(S)));
+  on("aBuy",()=>act(()=>PG.buy(S)));
+  on("aDecl",()=>act(()=>PG.decline(S)));
+  on("aBid1",()=>act(()=>PG.bid(S,me,PG.minBid(S))));
+  on("aBid2",()=>act(()=>PG.bid(S,me,PG.minBid(S)+40)));
+  on("aBid3",()=>act(()=>PG.bid(S,me,PG.minBid(S)+90)));
+  on("aPass",()=>act(()=>PG.pass(S,me)));
+  on("aPayD",()=>act(()=>PG.payDebt(S)));
+  on("aBroke",()=>confirmBankrupt());
+  on("aEndT",()=>act(()=>PG.endTurn(S)));
+  on("aManage",()=>showManage()); on("aTrade",()=>showTrade());
+  on("aDeed",()=>showDeed(S.phase==="auction"?S.auction.i:S.pending.i));
+}
+
+// ---------- The game loop: apply an action, animate what happened, then let cats act ----------
+async function act(fn){
+  if (animating) return;
+  const before=S.players.map(p=>p.pos);
+  fn();
+  await playEvents(before);
+  save(); render();
+  if (S.over) return setTimeout(showEnd,700);
+  scheduleAI();
+}
+function scheduleAI(){
+  clearTimeout(aiTimer);
+  if (!S||S.over) return;
+  const a=S.players[S.actor];
+  if (!a || a.human) return;
+  aiTimer=setTimeout(()=>act(()=>PG.aiStep(S)), S.phase==="auction"?T_().ai*0.6:T_().ai);
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function playEvents(before){
+  const evs=S.events.splice(0); if (!evs.length) return;
+  animating=true; renderActions();
+  shownPos=before.slice();
+  const step=T_().step; document.documentElement.style.setProperty("--step",step+"ms");
+  for (const e of evs){
+    switch(e.t){
+      case "dice": showDice(e.d,true); say(`${who(S.cur)} rolled <b>${e.d[0]+e.d[1]}</b>${e.d[0]===e.d[1]?" (doubles!)":""}.`); await sleep(step*4); break;
+      case "move": {
+        let pos=e.from; const backward=(e.to-e.from+40)%40>20 && !(e.to===PG.JAIL);
+        const steps=backward?(e.from-e.to+40)%40:(e.to-e.from+40)%40;
+        if (steps>12||steps===0){ shownPos[e.p]=e.to; placeTokens(); await sleep(step*2); break; }
+        for (let k=0;k<steps;k++){ pos=(pos+(backward?39:1))%40; shownPos[e.p]=pos; moveTok(e.p,pos); await sleep(step); }
+        renderPlayers(); break; }
+      case "jail": shownPos[e.p]=PG.JAIL; placeTokens(); say(`🏥 ${who(e.p)} ${e.p===ME()?"go":"goes"} to the Vet's Office!`); await sleep(step*6); break;
+      case "card": showCard(e.deck,e.txt); await sleep(T_().card); hideCard(); break;
+      case "rent": say(`${who(e.p)} ${e.p===ME()?"pay":"pays"} <b>${money(e.n)}</b> rent to ${who(e.to)}.`);
+        if (e.to!==ME() && e.p===ME() && e.n>=60) dm(S.players[e.to].cat,"catCollects",e.n>=200?1:0.5);
+        if (e.p!==ME() && e.to===ME() && e.n>=60) dm(S.players[e.p].cat,"youCollect",e.n>=200?0.9:0.4);
+        await sleep(step*7); break;
+      case "buy": say(`${who(e.p)} ${e.p===ME()?"buy":"buys"} <b>${B[e.i].n}</b>.`); renderBoard(); renderPlayers();
+        if (S.players[e.p].cat && B[e.i].t==="st" && PG.ownsAll(S,e.p,B[e.i].g)) dm(S.players[e.p].cat,"catSet",0.9);
+        await sleep(step*5); break;
+      case "bid": say(`${who(e.p)} ${e.p===ME()?"bid":"bids"} <b>${money(e.n)}</b> for ${B[S.auction?S.auction.i:0].n}.`); await sleep(step*3); break;
+      case "pass": say(`${who(e.p)} ${e.p===ME()?"drop":"drops"} out of the auction.`); await sleep(step*2); break;
+      case "trade": renderBoard(); renderPlayers(); say(S.log[S.log.length-1]); await sleep(step*10); break;
+      case "bankrupt": say(`💸 ${who(e.p)} went bankrupt!`); if (e.to>=0&&e.p===ME()) dm(S.players[e.to].cat,"youBroke",1); await sleep(step*8); break;
+      case "turn": shownPos=S.players.map(p=>p.pos); renderPlayers(); say(`${S.cur===ME()?"Your":who(S.cur)+"'s"} turn.`); break;
+    }
+  }
+  shownPos=null; animating=false;
+}
+const who=i=>i===ME()?"You":S.players[i].name;
+function moveTok(k,pos){
+  const t=$("tok"+k); if(!t) return placeTokens();
+  const [r,c]=rc(pos); t.style.left=((c+0.36)/11*100)+"%"; t.style.top=((r+0.36)/11*100)+"%";
+}
+function showCard(deck,txt){ const c=$("card"); c.innerHTML=`<b>${deck==="box"?"📦 MYSTERY BOX":"🍪 TREAT JAR"}</b>${txt}`; c.style.display="block"; $("say").style.display="none"; }
+function hideCard(){ $("card").style.display="none"; $("say").style.display=""; }
+let dmTimer=null;
+function dm(cat,kind,chance){
+  if (!cat||!talkOn()||Math.random()>chance) return;
+  const line=GameCats.line(kind,cat), el=$("dm");
+  el.innerHTML=`<img src="${GameCats.img(cat)}" alt=""><div><b>${cat}:</b> ${line}</div>`;
+  el.classList.add("show"); clearTimeout(dmTimer); dmTimer=setTimeout(()=>el.classList.remove("show"),Math.max(3800,2200+line.length*55));
+}
+
+// ---------- Dialogs ----------
+function dialog(html){ $("dlg").innerHTML=html; $("dialog").classList.remove("hidden"); }
+function closeDialog(){ $("dialog").classList.add("hidden"); }
+function deedHTML(i){
+  const s=B[i], o=S.owner[i], col=PG.GCOL[s.grp]||"#777";
+  if (!s.grp) return `<div class="deed"><div class="hd" style="background:#6b5e50">${s.icon||""} ${s.n}</div><div class="bd"><p>${{go:"Collect $200 every time you pass.",jar:"Draw a Treat Jar card.",box:"Draw a Mystery Box card.",tax:`Pay $${s.amt}.`,jail:"Just visiting, unless you were sent here. Leave by rolling doubles, paying $50, or using a free card.",nap:"Free parking. Have a nap.",gojail:"Go straight to the Vet's Office."}[s.t]||""}</p></div></div>`;
+  let rows="";
+  if (s.t==="st") rows=["Rent","With 1 house","With 2 houses","With 3 houses","With 4 houses","With a hotel"].map((l,k)=>`<tr><td>${l}${k===0?" (×2 with full set)":""}</td><td>${money(s.rent[k])}</td></tr>`).join("")+`<tr><td>House cost</td><td>${money(s.hc)} each</td></tr>`;
+  else if (s.t==="rail") rows=[1,2,3,4].map(n=>`<tr><td>Own ${n} Laser Line${n>1?"s":""}</td><td>${money(25*Math.pow(2,n-1))}</td></tr>`).join("");
+  else rows=`<tr><td>Own 1 factory</td><td>4× dice</td></tr><tr><td>Own both</td><td>10× dice</td></tr>`;
+  return `<div class="deed"><div class="hd" style="background:${col}">${s.icon||""} ${s.n}</div><div class="bd">
+    <table class="res"><tr><td>Price</td><td>${money(s.price)}</td></tr>${rows}<tr><td>Mortgage value</td><td>${money(s.price/2)}</td></tr></table>
+    <p>Owner: <b>${o<0?"For sale":who(o)}</b>${S.mort[i]?" · <b>Mortgaged</b>":""}${S.houses[i]?` · ${S.houses[i]===5?"Hotel":S.houses[i]+" house"+(S.houses[i]>1?"s":"")}`:""}</p></div></div>`;
+}
+function showDeed(i){ if(!S) return; dialog(deedHTML(i)+`<div class="stack"><button class="btn primary" id="dOk">Close</button></div>`); $("dOk").onclick=closeDialog; }
+function showHoldings(p){
+  const pl=S.players[p], props=[]; for(let i=0;i<40;i++) if(S.owner[i]===p) props.push(i);
+  dialog(`<div class="brand">${avatarHTML(p,"cat")}<div><h2 style="margin:0">${p===ME()?"You":pl.name}</h2><p style="margin:0">${pl.human?"":LEVELS[pl.level]+" · "}${money(pl.cash)} cash · worth ${money(PG.netWorth(S,p))}</p></div></div>
+    <table class="res">${props.length?props.map(i=>`<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${PG.GCOL[B[i].grp]};margin-right:6px"></span>${B[i].n}${S.mort[i]?" (mortgaged)":""}</td><td>${S.houses[i]===5?"🏨":"🏠".repeat(S.houses[i])}</td></tr>`).join(""):`<tr><td>No properties yet</td><td></td></tr>`}</table>
+    ${pl.cards?`<p>🎟️ Holding ${pl.cards} Get Out of the Vet Free card${pl.cards>1?"s":""}.</p>`:""}
+    <div class="stack"><button class="btn primary" id="hOk">Close</button></div>`);
+  $("hOk").onclick=closeDialog;
+}
+// Manage: build, sell, mortgage
+function showManage(){
+  const me=ME(), groups={};
+  for(let i=0;i<40;i++) if(S.owner[i]===me) (groups[B[i].grp]=groups[B[i].grp]||[]).push(i);
+  const keys=Object.keys(groups);
+  const body= keys.length ? keys.map(g=>`<div class="mg"><div class="gh" style="background:${PG.GCOL[g]}">${PG.GNAME[g]}${g!=="rail"&&g!=="util"&&PG.ownsAll(S,me,g)?" · full set ✓":` · ${groups[g].length}/${PG.GROUPS[g].length}`}</div>
+    ${groups[g].map(i=>`<div class="pr"><div class="n">${B[i].n}<small>${S.mort[i]?`Mortgaged · pay off ${money(PG.unmortCost(i))}`:S.houses[i]?(S.houses[i]===5?"Hotel":S.houses[i]+" house"+(S.houses[i]>1?"s":"")):"No houses"}${B[i].hc?` · house ${money(B[i].hc)}`:""}</small></div>
+      ${B[i].t==="st"?`<button data-a="b" data-i="${i}" ${PG.canBuild(S,me,i)?"":"disabled"}>+🏠</button><button data-a="s" data-i="${i}" ${PG.canSell(S,me,i)?"":"disabled"}>−🏠</button>`:""}
+      ${S.mort[i]?`<button data-a="u" data-i="${i}" ${PG.canUnmortgage(S,me,i)?"":"disabled"}>Pay off</button>`:`<button data-a="m" data-i="${i}" ${PG.canMortgage(S,me,i)?"":"disabled"}>Mortgage</button>`}</div>`).join("")}</div>`).join("")
+    : `<p>You don't own any properties yet.</p>`;
+  dialog(`<h2>Manage · ${money(S.players[me].cash)}</h2><p>Build evenly across a full color set. Selling a house gets half its cost back; mortgaging gets half the price (pay back +10%).</p>${body}<div class="stack"><button class="btn primary" id="mgOk">Done</button></div>`);
+  $("dlg").querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, a=b.dataset.a;
+    ({b:PG.build,s:PG.sellHouse,m:PG.mortgage,u:PG.unmortgage})[a](S,me,i);
+    S.events.length=0; save(); render(); showManage();
+  });
+  $("mgOk").onclick=()=>{ closeDialog(); render(); };
+}
+// Trade with a cat
+function showTrade(pick){
+  const me=ME(), cats=PG.alive(S).filter(q=>q!==me);
+  if (!cats.length) return;
+  const q=pick??cats[0];
+  const tr={mine:new Set(),theirs:new Set(),give:0,get:0};
+  const draw=()=>{
+    const list=(p,set,key)=>{ const items=[]; for(let i=0;i<40;i++) if(S.owner[i]===p){ const locked=B[i].t==="st"&&PG.GROUPS[B[i].g].some(j=>S.houses[j]>0);
+        items.push(`<label class="${locked?"dis":""}"><input type="checkbox" data-k="${key}" data-i="${i}" ${set.has(i)?"checked":""} ${locked?"disabled":""}><span class="sw" style="background:${PG.GCOL[B[i].grp]}"></span>${B[i].n}${S.mort[i]?" (mortgaged)":""}</label>`); }
+      return items.join("")||`<p style="margin:4px 0">No properties.</p>`; };
+    const step=(key,max)=>`<div class="step">Cash: <button data-c="${key}" data-d="-50">−</button><b>${money(tr[key])}</b><button data-c="${key}" data-d="50">+</button><span style="color:var(--muted);font-size:12px">of ${money(max)}</span></div>`;
+    dialog(`<h2>Trade</h2>
+      ${cats.length>1?`<div class="seg" style="grid-template-columns:repeat(${cats.length},1fr)">${cats.map(c=>`<button data-q="${c}" class="${c===q?"on":""}">${S.players[c].name}</button>`).join("")}</div>`:""}
+      <div class="tcol"><h3>You give</h3>${list(me,tr.mine,"mine")}${step("give",S.players[me].cash)}</div>
+      <div class="tcol"><h3>${avatarHTML(q)} ${S.players[q].name} gives</h3>${list(q,tr.theirs,"theirs")}${step("get",S.players[q].cash)}</div>
+      <p id="tMsg"></p>
+      <div class="stack"><button class="btn primary" id="tGo">Propose trade</button><button class="btn" id="tX">Cancel</button></div>`);
+    $("dlg").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>showTrade(+b.dataset.q));
+    $("dlg").querySelectorAll("input[data-k]").forEach(c=>c.onchange=()=>{ const set=tr[c.dataset.k]; const i=+c.dataset.i; c.checked?set.add(i):set.delete(i); });
+    $("dlg").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ const k=b.dataset.c, max=k==="give"?S.players[me].cash:S.players[q].cash; tr[k]=Math.max(0,Math.min(max,tr[k]+(+b.dataset.d))); draw(); });
+    $("tX").onclick=closeDialog;
+    $("tGo").onclick=()=>{
+      const deal={a:me,b:q,aProps:[...tr.mine],bProps:[...tr.theirs],aCash:tr.give,bCash:tr.get};
+      if (!PG.tradeValid(S,deal)){ $("tMsg").textContent="Pick something to trade."; return; }
+      const cat=S.players[q];
+      let yes=PG.judgeTrade(S,q,deal,cat.level).ok;
+      if (cat.level===3) yes = PG.lookahead(S,q,[C=>PG.doTrade(C,deal),()=>{}])===0 && PG.judgeTrade(S,q,deal,2).gain>-50;
+      if (yes){ PG.doTrade(S,deal); S.events.length=0; save(); render(); dm(cat.cat,"catAccept",1);
+        dialog(`<div class="brand">${avatarHTML(q,"cat")}<div><h2 style="margin:0">Deal!</h2><p style="margin:0">${cat.name} accepted your trade.</p></div></div><div class="stack"><button class="btn primary" id="tOk">Nice</button></div>`); $("tOk").onclick=closeDialog; }
+      else { dm(cat.cat,"catDecline",1); $("tMsg").innerHTML=`<b>${cat.name} says no.</b> Try offering more.`; }
+    };
+  };
+  draw();
+}
+function showOffer(){
+  const d=S.offer, cat=S.players[d.a], me=ME();
+  const side=(props,cash)=>[...props.map(i=>`<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${PG.GCOL[B[i].grp]};margin-right:5px"></span>${B[i].n}`),cash?money(cash):""].filter(Boolean).join("<br>")||"Nothing";
+  dialog(`<div class="brand">${avatarHTML(d.a,"cat")}<div><h2 style="margin:0">${cat.name} wants to trade</h2><p style="margin:0">${LEVELS[cat.level]} cat</p></div></div>
+    <table class="res"><tr><td><b>You get</b></td><td></td></tr><tr><td>${side(d.aProps,d.aCash)}</td><td></td></tr>
+      <tr><td><b>You give</b></td><td></td></tr><tr><td>${side(d.bProps,d.bCash)}</td><td></td></tr></table>
+    <div class="stack"><button class="btn primary" id="oY">Accept</button><button class="btn" id="oN">Decline</button><button class="btn" id="oLook">Look at the board first</button></div>`);
+  $("oY").onclick=()=>{ closeDialog(); act(()=>PG.answerOffer(S,true)); };
+  $("oN").onclick=()=>{ closeDialog(); dm(cat.cat,"catDecline",0.4); act(()=>PG.answerOffer(S,false)); };
+  $("oLook").onclick=()=>{ closeDialog(); $("actions").innerHTML=`<div class="row"><button class="btn primary" id="oBack">See ${cat.name}'s offer again</button></div>`; $("oBack").onclick=showOffer; };
+}
+function confirmBankrupt(){
+  dialog(`<h2>Declare bankruptcy?</h2><p>You'll be out of the game. Everything you own goes to ${S.debts[0].to>=0?S.players[S.debts[0].to].name:"the bank"}.</p><div class="stack"><button class="btn warn" id="bY">Declare bankruptcy</button><button class="btn" id="bN">Keep trying</button></div>`);
+  $("bY").onclick=()=>{ closeDialog(); act(()=>PG.bankrupt(S)); }; $("bN").onclick=closeDialog;
+}
+
+// ---------- Start / end / menu ----------
+function newGame(nCats,level,mode,val){
+  const cats=GameCats.pickCats(nCats);
+  const lvls= level===4 ? [0,1,2,3].sort(()=>Math.random()-.5) : [level,level,level];
+  const players=[{name:"You",human:true,color:COLORS[0]}].concat(cats.map((c,k)=>({name:c,cat:c,human:false,level:lvls[k],color:COLORS[k+1]})));
+  S=PG.newGame({players,mode,rounds:mode==="rounds"?val:30,target:mode==="worth"?val:5000});
+  S.level=level; S.events.length=0;
+  closeDialog(); save(); render();
+  say("Your turn. Roll the dice!");
+  const c=cats[rnd(cats.length)]; setTimeout(()=>dm(c,"propHello",0.8),400);
+}
+function showStart(){
+  const saved=readLocal(SAVE_KEY);
+  let n=2, level=1, mode="rounds", val=30;
+  const MODES={last:{label:"Last one standing",vals:[]},rounds:{label:"Set number of rounds",vals:[20,30,45]},worth:{label:"Net worth target",vals:[3000,5000,8000]}};
+  const draw=()=>{
+    const vals=MODES[mode].vals; if (vals.length&&!vals.includes(val)) val=vals[1];
+    dialog(`<div class="brand"><img class="cat" src="icon-192.png" alt="Glorg"><div><h1>Purrperty</h1><p style="margin:0">Buy streets, build houses, bankrupt the cats.</p></div></div>
+      ${saved&&!saved.over?`<div class="stack"><button class="btn primary" id="sCont">Continue saved game (round ${saved.round})</button></div>`:""}
+      <div class="lbl">Cat opponents</div>
+      <div class="seg" style="grid-template-columns:repeat(3,1fr)">${[1,2,3].map(k=>`<button data-n="${k}" class="${k===n?"on":""}">${k} cat${k>1?"s":""}</button>`).join("")}</div>
+      <div class="lbl">Difficulty</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)">${LEVELS.map((l,i)=>`<button data-lv="${i}" class="${i===level?"on":""}" ${i===4?'style="grid-column:span 2"':""}>${i===4?"🎲 Mixed":l}</button>`).join("")}</div>
+      <div class="lbl">Game length</div>
+      <div class="seg">${Object.keys(MODES).map(k=>`<button data-m="${k}" class="${k===mode?"on":""}">${MODES[k].label}</button>`).join("")}</div>
+      ${vals.length?`<div class="seg" style="grid-template-columns:repeat(3,1fr);margin-top:6px">${vals.map(v=>`<button data-v="${v}" class="${v===val?"on":""}">${mode==="rounds"?v+" rounds":money(v)}</button>`).join("")}</div>`:`<p>If nobody's bankrupt by round ${PG.LAST_CAP}, the richest player wins.</p>`}
+      <div class="lbl">Game speed</div>
+      <div class="seg" style="grid-template-columns:repeat(3,1fr)">${["slow","normal","fast"].map(v=>`<button data-sp="${v}" class="${v===speed?"on":""}">${v[0].toUpperCase()+v.slice(1)}</button>`).join("")}</div>
+      <div class="lbl">Cat smack talk</div>
+      <div class="seg" style="grid-template-columns:repeat(2,1fr)"><button data-talk="1" class="${talkOn()?"on":""}">On 😼</button><button data-talk="0" class="${talkOn()?"":"on"}">Off 😶</button></div>
+      <div class="stack"><button class="btn ${saved&&!saved.over?"":"primary"}" id="sNew">New game</button><button class="btn" id="sStats">📊 Stats</button><a class="btn" href="./">← All games</a></div>`);
+    const q=(sel,fn)=>$("dlg").querySelectorAll(sel).forEach(b=>b.onclick=()=>{ fn(b); draw(); });
+    q("[data-n]",b=>n=+b.dataset.n); q("[data-lv]",b=>level=+b.dataset.lv); q("[data-m]",b=>mode=b.dataset.m); q("[data-v]",b=>val=+b.dataset.v);
+    q("[data-sp]",b=>setSpeed(b.dataset.sp)); q("[data-talk]",b=>setTalk(b.dataset.talk==="1"));
+    $("sNew").onclick=()=>newGame(n,level,mode,val);
+    $("sStats").onclick=()=>{ statsBack=draw; showStats(); };
+    if ($("sCont")) $("sCont").onclick=()=>{ closeDialog(); resume(saved); };
+  };
+  draw();
+}
+function setSpeed(v){ speed=v; try{ localStorage.setItem(SPEED_KEY,v); }catch(e){} }
+function resume(saved){ S=saved; S.events=[]; render(); if (S.over) return showEnd(); say(S.cur===ME()?"Welcome back! Your turn.":"Welcome back!"); scheduleAI(); }
+function showEnd(){
+  const me=ME(), win=S.winner, youWon=win===me;
+  if (!S.endCat){ const cats=S.players.filter(p=>p.cat).map(p=>p.cat); S.endCat= youWon ? cats[rnd(cats.length)] : (S.players[win].cat||cats[0]); S.endLine=GameCats.line(youWon?"win":"lose",S.endCat); S.stat=recordResult(youWon); save(); }
+  const rows=S.ranking.map((p,k)=>`<tr><td>${k+1}. ${who(p)}${S.players[p].out?" (bankrupt)":""}</td><td>${money(PG.netWorth(S,p))}</td></tr>`).join("");
+  dialog(`<img class="cat big" src="${GameCats.img(S.endCat)}" alt=""><h2 style="text-align:center">${youWon?"You win! 🎉":`${who(win)} wins`}</h2>
+    <p class="quote">${S.endLine}</p>${S.timeUp?`<p style="text-align:center">Round ${PG.LAST_CAP} reached, so the richest player wins.</p>`:""}
+    <table class="res">${rows}</table>${S.stat?`<p style="text-align:center">${S.stat}</p>`:""}
+    <div class="stack"><button class="btn primary" id="eNew">New game</button><button class="btn" id="eStats">📊 Stats</button><button class="btn" id="eView">View board</button></div>`);
+  $("eNew").onclick=()=>{ writeLocal(SAVE_KEY,null); showStart(); };
+  $("eStats").onclick=()=>{ statsBack=showEnd; showStats(); };
+  $("eView").onclick=closeDialog;
+}
+function showMenu(){
+  dialog(`<h2>Menu</h2><div class="stack">
+    <button class="btn primary" id="mBack">Back to game</button>
+    <button class="btn" id="mSpeed">Game speed: ${speed[0].toUpperCase()+speed.slice(1)}</button>
+    <button class="btn" id="mTalk">Cat smack talk: ${talkOn()?"On 😼":"Off 😶"}</button>
+    <button class="btn" id="mNew">Quit to main menu</button>
+    <button class="btn" id="mStats">📊 Stats</button>
+    <button class="btn" id="mTheme">${document.documentElement.dataset.theme==="dark"?"☀️ Light mode":"🌙 Dark mode"}</button>
+    <button class="btn" id="mRules">How to play</button>
+    <a class="btn" href="./">← All games</a></div>`);
+  $("mBack").onclick=closeDialog;
+  $("mSpeed").onclick=()=>{ setSpeed({slow:"normal",normal:"fast",fast:"slow"}[speed]); showMenu(); };
+  $("mTalk").onclick=()=>{ setTalk(!talkOn()); if(!talkOn()) $("dm").classList.remove("show"); showMenu(); };
+  $("mNew").onclick=()=>{
+    if (!S||S.over){ showStart(); return; }
+    dialog(`<h2>Quit this game?</h2><p>It won't count as a loss.</p><div class="stack"><button class="btn primary" id="yN">Quit</button><button class="btn" id="nN">Keep playing</button></div>`);
+    $("yN").onclick=()=>{ clearTimeout(aiTimer); writeLocal(SAVE_KEY,null); S=null; showStart(); }; $("nN").onclick=showMenu;
+  };
+  $("mStats").onclick=()=>{ statsBack=showMenu; showStats(); };
+  $("mTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; try{localStorage.setItem("wordrack-theme",t);}catch(e){} showMenu(); };
+  $("mRules").onclick=()=>{
+    dialog(`<h2>How to play</h2>
+      <p>Roll and move around the board. Land on an unowned street, Laser Line or factory to buy it. If you pass, everyone bids for it at auction.</p>
+      <p>Landing on someone else's property costs rent. Own a whole color set to double the base rent and build houses (evenly), then a hotel. Laser Lines pay more the more you own; factories charge 4× or 10× the dice.</p>
+      <p><b>Vet's Office:</b> leave by rolling doubles, paying $50, or using a free card. After 3 tries you pay $50 automatically. Three doubles in a row sends you there too.</p>
+      <p>Short on cash? Sell houses (half price back) or mortgage properties (half the price; pay back +10%). If you still can't pay, you're bankrupt.</p>
+      <p><b>Trade</b> any time on your turn. Cats may also offer you deals. Tap any space to see its card, and tap a player to see what they own.</p>
+      <div class="stack"><button class="btn primary" id="rOk">Got it</button></div>`);
+    $("rOk").onclick=showMenu;
+  };
+}
+$("menuBtn").onclick=()=>{ if (S) showMenu(); else showStart(); };
+
+// ---------- Stats ----------
+let statsBack=null;
+function blankStats(){ return {levels:{},games:0,best:0}; }
+function loadStats(){ return Object.assign(blankStats(), readLocal(STATS_KEY)||{}); }
+function recordResult(youWon){
+  const st=loadStats(), L=st.levels[S.level]||(st.levels[S.level]={w:0,l:0}); L[youWon?"w":"l"]++; st.games++;
+  const nw=PG.netWorth(S,ME()); let nb=false; if (nw>st.best){ nb=st.best>0; st.best=nw; }
+  writeLocal(STATS_KEY,st);
+  return nb ? `🏆 Your richest finish yet: ${money(nw)}!` : `${LEVELS[S.level]} record: ${L.w}–${L.l}`;
+}
+function showStats(){
+  const st=loadStats();
+  const rows=LEVELS.map((l,i)=>{ const L=st.levels[i]; return L?`<tr><td>${l}</td><td>${L.w}–${L.l}</td></tr>`:""; }).join("");
+  dialog(`<h2>Purrperty stats</h2><table class="res"><tr><td>Games played</td><td>${st.games}</td></tr><tr><td>Richest finish</td><td>${st.best?money(st.best):"–"}</td></tr></table>
+    ${rows?`<div class="lbl">Wins–losses by difficulty</div><table class="res">${rows}</table>`:`<p>Finish a game to start your record.</p>`}
+    <div class="stack"><button class="btn primary" id="stClose">Close</button><button class="btn" id="stExp">Export stats (backup)</button><button class="btn" id="stImp">Import stats</button><button class="btn" id="stReset">Reset stats</button></div>`);
+  $("stClose").onclick=()=>{ statsBack?statsBack():closeDialog(); };
+  $("stExp").onclick=()=>{ const code="PP1:"+btoa(unescape(encodeURIComponent(JSON.stringify(st))));
+    dialog(`<h2>Export stats</h2><p>Copy this code somewhere safe. Paste it into Import to restore.</p><textarea id="eC" readonly>${code}</textarea><p id="eM"></p><div class="stack"><button class="btn primary" id="eCp">Copy code</button><button class="btn" id="eB">Back</button></div>`);
+    $("eCp").onclick=()=>{ const ta=$("eC"); ta.focus(); ta.select(); const ok=()=>$("eM").textContent="Copied ✓", bad=()=>$("eM").textContent="Long-press the selected code and choose Copy.";
+      try{ navigator.clipboard.writeText(code).then(ok,()=>{ try{ document.execCommand("copy")?ok():bad(); }catch(e){bad();} }); }catch(e){ bad(); } };
+    $("eB").onclick=showStats; };
+  $("stImp").onclick=()=>{
+    dialog(`<h2>Import stats</h2><p>Paste a Purrperty code from Export.</p><textarea id="iC"></textarea><p id="iM"></p><div class="stack"><button class="btn primary" id="iGo">Import</button><button class="btn" id="iB">Back</button></div>`);
+    $("iGo").onclick=()=>{ try{ const raw=$("iC").value.trim(); if(!raw.startsWith("PP1:")) throw 0; const o=JSON.parse(decodeURIComponent(escape(atob(raw.slice(4))))); if(!o||typeof o.levels!=="object") throw 0; writeLocal(STATS_KEY,Object.assign(blankStats(),o)); showStats(); }catch(e){ $("iM").textContent="That code doesn't look right."; } };
+    $("iB").onclick=showStats; };
+  $("stReset").onclick=()=>{ dialog(`<h2>Reset Purrperty stats?</h2><p>This can't be undone.</p><div class="stack"><button class="btn primary" id="rsY">Reset</button><button class="btn" id="rsN">Cancel</button></div>`);
+    $("rsY").onclick=()=>{ writeLocal(STATS_KEY,blankStats()); showStats(); }; $("rsN").onclick=showStats; };
+}
+
+// ---------- Boot ----------
+buildBoard();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+document.addEventListener("visibilitychange",()=>{ if (!document.hidden && S && !animating) scheduleAI(); });
+(function(){ const saved=readLocal(SAVE_KEY); if (saved && !saved.over) resume(saved); else showStart(); })();
+</script>
+</body>
+</html>

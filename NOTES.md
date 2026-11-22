@@ -21,6 +21,7 @@ Opponents and personalities throughout the games. Photos are `cat-*.jpg`; lines 
 | `hearts.html` | Hearts | 3 random cats, Mixed difficulty, Expert uses look-ahead (card counting), game speed setting |
 | `sudoku.html` | Sudoku | 4 difficulties, notes, 3 hints, 3 mistakes, timer, score |
 | `chess.html` + `chess-engine.js` | Chess | Cat tied to difficulty, engine runs in a background worker, rules verified with perft |
+| `property.html` + `property-engine.js` | Purrperty (Monopoly-style) | Cat-themed board, 1–3 cats, 3 game lengths (last standing capped at round 80, rounds, net worth target). Trading both ways, auctions, mortgages, Vet's Office = jail. Expert (Mojito) uses look-ahead with identical dice per option; beats Hard ~78% 1v1. First build Nov 2026: expect playtest tweaks. |
 | `dice.html` + `dice-ai.js` | Dice Duel (Yahtzee-style) | 1v1 vs a cat, campaign = beat all 4 cats in a row, game speed setting. House rule: extra 5-of-a-kinds can go in any box (wild for Full House/straights), +100 each. Dice sort low to high after each roll. |
 
 Shared: `cats.js` (names, pronouns, win/lose/draw lines, table talk), `sw.js` (offline cache: bump `CACHE` and add new files to `FILES` whenever files change), `manifest.webmanifest` (app name "Glorg's Games").
@@ -33,7 +34,7 @@ Not all of these will be built. Suggested order first.
 | # | Game idea | Feasibility | Notes |
 |---|---|---|---|
 | 1 | Yahtzee-style dice | Easy | **Done: Dice Duel** |
-| 2 | Property trading (Monopoly / Fortune Street) | Big but doable | Turn-based. Hard parts: cat trading logic and a phone-friendly trade screen. Start with Monopoly-style rules on a cat-themed board; Fortune Street stocks maybe later. Likely the most-used game. |
+| 2 | Property trading (Monopoly / Fortune Street) | Big but doable | **First build done: Purrperty** (Monopoly-style). Possible later: Fortune Street-style stocks, house/hotel shortage, more trade features. |
 | 3 | Match-3 (Bejeweled / Candy Crush) | Easy–medium | Turn-based, light on battery. Levels with goals or endless. |
 | 4 | Falling-bean puzzle (Mean Bean Machine) | Medium | Grid rules are simple. Versus a cat who sends junk beans would be great. |
 | 5 | Peggle-style | Medium | Simple 2D physics; most work is fun peg layouts. |
