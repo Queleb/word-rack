@@ -108,8 +108,9 @@
     <button class="btn" id="recallBtn">Recall</button>
     <button class="btn" id="shuffleBtn">Shuffle</button>
     <button class="btn" id="swapBtn">Swap</button>
-    <button class="btn half" id="passBtn">Pass</button>
-    <button class="btn half" id="lookBtn">Check word</button>
+    <button class="btn" id="hintBtn">💡 Hint</button>
+    <button class="btn" id="passBtn">Pass</button>
+    <button class="btn" id="lookBtn">Check word</button>
   </div>
   <details><summary>Move log</summary><ol id="log"></ol></details>
 </div>
@@ -123,6 +124,7 @@ const N = 15, CENTER = 112, SAVE_KEY = "wordrack-save-v1";
 const VAL = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10,"?":0};
 const DIST = {A:9,B:2,C:2,D:4,E:12,F:2,G:3,H:2,I:9,J:1,K:1,L:4,M:2,N:6,O:8,P:2,Q:1,R:6,S:4,T:6,U:4,V:2,W:2,X:1,Y:2,Z:1,"?":2};
 const LEVELS = ["Easy","Medium","Hard","Expert"];
+const HINTS_FOR = [-1,5,3,0];   // -1 = unlimited
 const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 // Premium squares
@@ -228,7 +230,7 @@ function newGame(numCpu, level){
   const players=[{name:"You",human:true,rack:[],score:0}];
   const cats=GameCats.pickCats(numCpu);
   for (let i=0;i<numCpu;i++) players.push({name:cats[i], cat:cats[i], human:false, rack:[], score:0});
-  S = {board:new Array(N*N).fill(null), players, bag, turn:0, scoreless:0, over:false, log:[], last:[], level, firstMove:true};
+  S = {board:new Array(N*N).fill(null), players, bag, turn:0, scoreless:0, over:false, log:[], last:[], level, firstMove:true, hintsLeft:HINTS_FOR[level]};
   for (const p of players) draw(p);
   pending=[]; selected=-1;
   save(); render(); setMsg("Your turn. Tap a tile, then tap a square."); setTimeout(checkStuck,400);
@@ -450,6 +452,7 @@ function doPass(stuck){
 // ---------- Turn handling ----------
 function commit(p, tiles, ev){
   for (const t of tiles) S.board[t.idx]={l:t.l,b:t.b};
+  if (!p.human) for (const t of tiles){ const i=p.rack.indexOf(t.b?"?":t.l); if (i>=0) p.rack.splice(i,1); }
   S.last=tiles.map(t=>t.idx);
   p.score+=ev.score; S.stuck=0;
   S.scoreless = ev.score>0 ? 0 : S.scoreless+1;
@@ -589,6 +592,9 @@ function render(){
   const mt=myTurn();
   for (const id of ["playBtn","recallBtn","swapBtn","passBtn"]) $(id).disabled=!mt;
   $("swapBtn").disabled=!mt||S.bag.length<7;
+  if (S.hintsLeft===undefined) S.hintsLeft=HINTS_FOR[S.level];
+  const hb=$("hintBtn"); hb.disabled=!mt||S.hintsLeft===0;
+  hb.textContent = S.level===3 ? "💡 No hints" : S.hintsLeft<0 ? "💡 Hint" : `💡 Hint (${S.hintsLeft})`;
   const ev=pending.length?evaluate(S.board,pending):null;
   $("playBtn").textContent = ev && !ev.err && !ev.bad.length ? `Play (${ev.score})` : "Play";
   $("log").innerHTML=S.log.map(x=>`<li>${x}</li>`).join("");
@@ -685,6 +691,18 @@ function showResults(){
 $("playBtn").onclick=play;
 $("recallBtn").onclick=()=>{ recall(); render(); setMsg("Your turn."); };
 $("shuffleBtn").onclick=()=>{ if(!S) return; selected=-1; shuffle(S.players[0].rack); render(); };
+$("hintBtn").onclick=()=>{
+  if (!myTurn() || S.hintsLeft===0) return;
+  recall();
+  const me=S.players[0];
+  const moves=genMoves(S.board,me.rack).sort((a,b)=>b.score-a.score);
+  if (!moves.length){ render(); checkStuck(); return; }
+  const m=moves[0];
+  for (const t of m.tiles){ const orig=t.b?"?":t.l; const i=me.rack.indexOf(orig); me.rack.splice(i,1); pending.push({idx:t.idx,l:t.l,b:t.b,orig}); }
+  if (S.hintsLeft>0){ S.hintsLeft--; const keep=me.rack.slice(); me.rack=keep.concat(pending.map(p=>p.orig)); save(); me.rack=keep; }
+  render();
+  setMsg(`Hint: <b>${m.word}</b> for ${m.score}. Tap Play to use it, or Recall.${S.hintsLeft>0?` (${S.hintsLeft} left)`:S.hintsLeft===0?" (last one!)":""}`);
+};
 $("passBtn").onclick=()=>{
   if (!myTurn()) return;
   dialog(`<h2>Pass your turn?</h2><div class="stack"><button class="btn primary" id="yP">Pass</button><button class="btn" id="nP">Cancel</button></div>`);
